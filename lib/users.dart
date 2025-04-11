@@ -34,7 +34,7 @@ List<Item> items = [
     signupd: "22/10/2024",
     country: "demonican republique",
     picture: "5907.jpg", // Add image path
-    password: "1234"
+    password: "1234" //hello world
   ),
   Item(
     name: "Jane Smith",
