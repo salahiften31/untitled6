@@ -1,4 +1,3 @@
-
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,46 +6,53 @@ import 'package:untitled6/home.dart';
 import 'package:untitled6/reported.dart';
 import 'package:untitled6/users.dart';
 import 'package:untitled6/admin.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main () async{
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  if(kIsWeb) {  
-   await Firebase.initializeApp(options:FirebaseOptions(  apiKey: "AIzaSyB46XNoZSeF1HoBt8GsEDxqHpZrcgFklrw",
-  authDomain: "fir-317ff.firebaseapp.com",
-  projectId: "fir-317ff",
-  storageBucket: "fir-317ff.firebasestorage.app",
-  messagingSenderId: "556746272305",
-  appId: "1:556746272305:web:a654f7f5dd4b81300d6f10",
-  measurementId: "G-4KD48YK7B6") );}
-else {
-  Firebase.initializeApp();
+  if (kIsWeb) {
+    await Firebase.initializeApp(
+        options: FirebaseOptions(
+            apiKey: "AIzaSyB46XNoZSeF1HoBt8GsEDxqHpZrcgFklrw",
+            authDomain: "fir-317ff.firebaseapp.com",
+            projectId: "fir-317ff",
+            storageBucket: "fir-317ff.firebasestorage.app",
+            messagingSenderId: "556746272305",
+            appId: "1:556746272305:web:a654f7f5dd4b81300d6f10",
+            measurementId: "G-4KD48YK7B6"));
+  } else {
+    Firebase.initializeApp();
+  }
+  await Supabase.initialize(
+    url:
+        'https://migwbqbtfzszopvhdzre.supabase.co', // Remplacez par l'URL de votre projet Supabase
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1pZ3dicWJ0Znpzem9wdmhkenJlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE5MjI3OTgsImV4cCI6MjA1NzQ5ODc5OH0.78NEfAWjrlWsjo_l9ZBLuKzNv13ikUWCBqE0DyCeZSA', // Remplacez par votre clé anonyme
+  );
+  runApp(MyApp());
 }
-runApp(MyApp());
 
-}
-
-class MyApp extends StatefulWidget{
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
-
 
   @override
   State<MyApp> createState() => MyAppState();
-  }
+}
 
-  class MyAppState extends State<MyApp> {
-GlobalKey<FormState> one=GlobalKey();
-    String?s;
-        String?h;
+class MyAppState extends State<MyApp> {
+  GlobalKey<FormState> one = GlobalKey();
+  String? s;
+  String? h;
   @override
   Widget build(BuildContext context) {
-return MaterialApp(
-home: Home(),
-routes: {
-"dashb":(context)=> Dashboard(),
-"user":(context)=> Users(),
-"admin":(context)=>Admin(),
-"rep":(context)=>Reported(),
-},
-);
+    return MaterialApp(
+      home: Home(),
+      routes: {
+        "dashb": (context) => Dashboard(),
+        "user": (context) => Users(),
+        "admin": (context) => Admin(),
+        "rep": (context) => Reported(),
+      },
+    );
   }
-  }
+}
