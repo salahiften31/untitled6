@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:untitled6/home.dart';
 
 class Admin extends StatefulWidget {
@@ -13,23 +14,35 @@ class _AdminState extends State<Admin> {
   bool isHovered1 = false;
   bool isHovered2 = false;
   bool isHovered3 = false;
-    bool isHovered4 = false;
-  List<Item> items = [
-    Item(name: "iften salah eddine", code: "123", rank: "creator"),
-    Item(name: "benslimane youness", code: "456", rank: "creator"),
-    Item(name: "Alice Johnson", code: "789", rank: "3"),
-    Item(name: "Aln", code: "89", rank: "4"),
-    Item(name: " Johnson", code: "9", rank: "5"),
-    Item(name: " Johnson", code: "9", rank: "5"),
-    Item(name: " Johnson", code: "9", rank: "5"),
-        Item(name: "iften salah eddine", code: "123", rank: "Goat"),
-    Item(name: "benslimane youness", code: "456", rank: "gg"),
-    Item(name: "Alice Johnson", code: "789", rank: "3"),
-    Item(name: "Aln", code: "89", rank: "4"),
-    Item(name: " Johnson", code: "9", rank: "5"),
-    Item(name: " Johnson", code: "9", rank: "5"),
-    Item(name: " Johnson", code: "9", rank: "5"),
-  ];
+  bool isHovered4 = false;
+
+  List<Item> items = [];
+
+  @override
+  void initState() {
+    super.initState();
+    fetchAdmins();
+  }
+
+  Future<void> fetchAdmins() async {
+    try {
+      final querySnapshot = await FirebaseFirestore.instance.collection('Admin').get();
+      final adminList = querySnapshot.docs.map((doc) {
+        final data = doc.data();
+        return Item(
+          name: data['name'] ?? '',
+          code: data['adcode'] ?? '',
+          rank: data['rank'] ?? '',
+        );
+      }).toList();
+
+      setState(() {
+        items = adminList;
+      });
+    } catch (e) {
+  
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
