@@ -15,8 +15,13 @@ class _AdminState extends State<Admin> {
   bool isHovered2 = false;
   bool isHovered3 = false;
   bool isHovered4 = false;
+  final TextEditingController verif = TextEditingController();
+  final TextEditingController adcodeController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
 
   List<Item> items = [];
+  int currentPage = 1;
+  final int itemsPerPage = 2;
 
   @override
   void initState() {
@@ -43,6 +48,219 @@ class _AdminState extends State<Admin> {
   
     }
   }
+    List<Item> get paginatedItems {
+    int start = (currentPage - 1) * itemsPerPage;
+    int end = start + itemsPerPage;
+    return items.sublist(start, end > items.length ? items.length : end);
+  }
+
+  int get totalPages => (items.length / itemsPerPage).ceil();
+
+  Widget paginationControls(double screenWidth) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(totalPages, (index) {
+        int pageNumber = index + 1;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: pageNumber == currentPage ? Colors.blue[700] : Colors.grey[300],
+              foregroundColor: Colors.black,
+              minimumSize: Size(screenWidth * 0.03, 36),
+              padding: EdgeInsets.zero,
+            ),
+            onPressed: () {
+              setState(() {
+                currentPage = pageNumber;
+              });
+            },
+            child: Text('$pageNumber'),
+          ),
+        );
+      }),
+    );
+  }
+
+// Inside your _AdminState class, add a new controller for the name field:
+final TextEditingController nameController = TextEditingController();
+
+// Then, update the showAddAdminDialog method:
+void showAddAdminDialog() {
+  String? dialogErrorMessage;
+  
+  showDialog(
+    context: context, 
+    builder: (BuildContext context) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          double screenWidth = MediaQuery.of(context).size.width;
+          double screenHeight = MediaQuery.of(context).size.height;
+          
+          return Dialog(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(35)
+              ),
+              width: screenWidth * 0.4,
+              // Increase height to accommodate the new field
+              height: screenHeight * 0.55,
+              child: Column(
+                children: [
+                  Container(
+                    margin: EdgeInsets.only(top: screenHeight * 0.08),
+                    width: screenWidth * 0.3,
+                    child: TextField(
+                      controller: verif,
+                      decoration: InputDecoration(
+                        hintText: "creators code",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        errorText: dialogErrorMessage
+                      ),
+                    ),
+                  ),
+                  // New field for admin name
+                  Container(
+                    margin: EdgeInsets.only(top: screenHeight * 0.03),
+                    width: screenWidth * 0.3,
+                    child: TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        hintText: "Admin name",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    margin: EdgeInsets.only(top: screenHeight * 0.03),
+                    width: screenWidth * 0.3,
+                    child: TextField(
+                      controller: adcodeController,
+                      decoration: InputDecoration(
+                        hintText: "New admin code",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    margin: EdgeInsets.only(top: screenHeight * 0.03),
+                    width: screenWidth * 0.3,
+                    child: TextField(
+                      controller: passwordController,
+                      decoration: InputDecoration(
+                        hintText: "New admin password",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    margin: EdgeInsets.only(top: screenHeight * 0.05, left: screenWidth * 0.14),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: screenWidth * 0.1,
+                          height: screenHeight * 0.06,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(100),
+                            color: Color(0xFF4b68ff),
+                          ),
+                          child: MaterialButton(
+                            onPressed: () async {
+                              // Validate inputs
+                              if (verif.text.trim().isEmpty || 
+                                  nameController.text.trim().isEmpty ||
+                                  adcodeController.text.trim().isEmpty || 
+                                  passwordController.text.trim().isEmpty) {
+                                setDialogState(() {
+                                  dialogErrorMessage = "All fields are required";
+                                });
+                                return;
+                              }
+                              
+                              if (verif.text.trim() == "slh3110") {
+                                try {
+                                  // Check if admin already exists
+                                  final adminCode = adcodeController.text.trim();
+                                  final querySnapshot = await FirebaseFirestore.instance
+                                    .collection('Admin')
+                                    .where('adcode', isEqualTo: adminCode)
+                                    .get();
+                                  
+                                  if (querySnapshot.docs.isNotEmpty) {
+                                    // Admin already exists
+                                    setDialogState(() {
+                                      dialogErrorMessage = "Admin with this code already exists";
+                                    });
+                                    return;
+                                  }
+                                  
+                                  // Add new admin to Firestore
+                                  await FirebaseFirestore.instance.collection('Admin').add({
+                                    'name': nameController.text.trim(), // Using the actual name field
+                                    'adcode': adminCode,
+                                    'passw': passwordController.text.trim(),
+                                    'rank': 'mod', // Set rank as "mod"
+                                  });
+                                  
+                                  // Close dialog on success
+                                  Navigator.of(context).pop();
+                                  
+                                  // Show success message
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('New moderator added successfully'))
+                                  );
+                                  
+                                  // Refresh admin list
+                                  fetchAdmins();
+                                  
+                                  // Clear text fields
+                                  verif.clear();
+                                  nameController.clear();
+                                  adcodeController.clear();
+                                  passwordController.clear();
+                                  
+                                } catch (e) {
+                                  setDialogState(() {
+                                    dialogErrorMessage = "Error adding admin: ${e.toString()}";
+                                  });
+                                }
+                              } else {
+                                // Error case - update error message
+                                setDialogState(() {
+                                  dialogErrorMessage = "Wrong creator code";
+                                });
+                              }
+                            },
+                            child: Text(
+                              "Add admin",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: screenWidth * 0.010,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                ],
+              ),
+            ),
+          );
+        }
+      );
+    }
+  );
+}
 
   @override
   Widget build(BuildContext context) {
@@ -275,116 +493,20 @@ class _AdminState extends State<Admin> {
                       Container( 
                         margin: EdgeInsets.only(top: screenHeight*0.14,left: screenWidth*0.7),
                         decoration: BoxDecoration(
-      color: Colors.blue,
-      borderRadius: BorderRadius.circular(100)
-      
+                          color: Colors.blue,
+                          borderRadius: BorderRadius.circular(100)
                         ),
                         width: screenWidth *0.07,
-                      height: screenHeight*0.07,
-                     child: IconButton(onPressed: (){
-                      setState(() {
-                        showDialog(context: context,builder :(BuildContext context ){
-      return Dialog(
-      child: Container(
-        decoration: BoxDecoration(  color: Colors.white,
-        borderRadius: BorderRadius.circular(35)
-        
-        ),
-      
-        width: screenWidth*0.4,
-        height: screenHeight*0.45,
-        child: Column(
-      children: [
-      Container(
-      
-        margin: EdgeInsets.only(top: screenHeight*0.08),
-        width: screenWidth*0.3,
-      child: TextField
-      
-      (decoration: InputDecoration(hintText: "creators code",
-      border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-      ),
-      ),
-      
-      ),
-      Container(
-      
-        margin: EdgeInsets.only(top: screenHeight*0.03),
-        width: screenWidth*0.3,
-      child: TextField
-      
-      (decoration: InputDecoration(hintText: "New admin code",
-      border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-      ),
-      ),
-      
-      ),
-      Container(
-      
-        margin: EdgeInsets.only(top: screenHeight*0.03),
-        width: screenWidth*0.3,
-      child: TextField
-      
-      (decoration: InputDecoration(hintText: "New admin password",
-      border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-      ),
-      ),
-      
-      ),
-      
-      Container(
-        margin: EdgeInsets.only(top: screenHeight*0.05,left: screenWidth*0.14),
-        child: Row(   children: [     Container(
-          
-                width: screenWidth * 0.1, // ✅ Responsive width
-                height: screenHeight * 0.06,
-                 // ✅ Responsive height
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(100),
-                  color: Color(0xFF4b68ff),
-                ),
-                child: MaterialButton(
-                  onPressed: () {
-      
-                  },
-                  child: Text(
-                    "Add admin",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: screenWidth * 0.010, // ✅ Responsive font size
-                    ),
-                  ),
-                ),
-              ),],),
-      )
-      ],
-      
-      
-        ),
-       
-      ),
-      
-      
-      );
-      
-      
-      
-                        });
-                      });
-                     }, icon: Icon(Icons.add)),
-                       ),
+                        height: screenHeight*0.07,
+                        child: IconButton(
+                          onPressed: showAddAdminDialog,
+                          icon: Icon(Icons.add)
+                        ),
+                      ),
                       // White Container for List
                       Container(
-      
                         width: screenWidth * 0.75,
                         margin: EdgeInsets.only(top: screenHeight * 0.0),
-                    
                         decoration: BoxDecoration(
                           color: Colors.white, // White background
                           borderRadius: BorderRadius.circular(50), // Rounded corners
@@ -427,78 +549,97 @@ class _AdminState extends State<Admin> {
                               width: screenWidth * 0.75,
                               margin: EdgeInsets.only(top: screenHeight * 0.03),
                               child: Column(
-                                children: List.generate(
-                                  items.length,
-                                  (index) => Card(
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(50),
-                                          side: BorderSide(
-                                            color: Colors.black12,
-                                            width: 2,
-                                          )
+                                children: items.isEmpty
+                                    ? [
+                                        Container(
+                                          padding: EdgeInsets.symmetric(vertical: 20),
+                                          child: Text(
+                                            "No admins found",
+                                            style: TextStyle(fontSize: screenWidth * 0.01),
+                                          ),
+                                        )
+                                      ]
+                                    : List.generate(
+                                        paginatedItems.length, // Use paginatedItems instead of items
+                                        (index) => Card(
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(50),
+                                            side: BorderSide(
+                                              color: Colors.black12,
+                                              width: 2,
+                                            )
+                                          ),
+                                          margin: EdgeInsets.symmetric(vertical: 10),
+                                          child: Container(
+                                            margin: EdgeInsets.symmetric(vertical: 10),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                              children: [
+                                                // Name
+                                                Container(
+                                                  width: screenWidth * 0.10,
+                                                  margin: EdgeInsets.only(left: screenWidth * 0.05),
+                                                  child: Center(
+                                                    child: Text(
+                                                      paginatedItems[index].name,
+                                                      style: TextStyle(fontSize: screenWidth * 0.008),
+                                                    ),
+                                                  ),
+                                                ),
+                                                // Code
+                                                Container(
+                                                  width: screenWidth * 0.08,
+                                                  margin: EdgeInsets.only(left: screenWidth * 0.025),
+                                                  child: Center(
+                                                    child: Text(
+                                                      paginatedItems[index].code,
+                                                      style: TextStyle(fontSize: screenWidth * 0.008),
+                                                    ),
+                                                  ),
+                                                ),
+                                                // Rank
+                                                Container(
+                                                  width: screenWidth * 0.08,
+                                                  margin: EdgeInsets.only(left: screenWidth * 0.04),
+                                                  child: Center(
+                                                    child: Text(
+                                                      paginatedItems[index].rank,
+                                                      style: TextStyle(fontSize: screenWidth * 0.008),
+                                                    ),
+                                                  ),
+                                                ),
+                                                // Delete Button
+                                                Container(
+                                                  margin: EdgeInsets.only(left: screenWidth * 0.11),
+                                                  child: Center(
+                                                    child: IconButton(
+                                                      onPressed: () {
+                                                        // Calculate the real index in the items list
+                                                        int actualIndex = (currentPage - 1) * itemsPerPage + index;
+                                                        setState(() {
+                                                          if (actualIndex < items.length) {
+                                                            items.removeAt(actualIndex);
+                                                            // Handle the case where we delete the last item on a page
+                                                            if (paginatedItems.isEmpty && currentPage > 1) {
+                                                              currentPage--;
+                                                            }
+                                                          }
+                                                        });
+                                                      },
+                                                      icon: Icon(Icons.delete),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
                                         ),
-                                    margin: EdgeInsets.symmetric(
-                                      vertical: 10, ),
-                                    child: Container(
-                                      margin: EdgeInsets.symmetric(vertical: 10),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                        children: [
-                                          
-                                          // Name
-                                          Container(
-                                            width: screenWidth * 0.10,
-                                            margin: EdgeInsets.only(left: screenWidth * 0.05),
-                                            child: Center(
-                                              child: Text(
-                                                items[index].name,
-                                                style: TextStyle(fontSize: screenWidth * 0.008),
-                                              ),
-                                            ),
-                                          ),
-                                          // Code
-                                          Container(
-                                            width: screenWidth * 0.08,
-                                            margin: EdgeInsets.only(left: screenWidth * 0.025),
-                                            child: Center(
-                                              child: Text(
-                                                items[index].code,
-                                                style: TextStyle(fontSize: screenWidth * 0.008),
-                                              ),
-                                            ),
-                                          ),
-                                          // Rank
-                                          Container(
-                                            width: screenWidth * 0.08,
-                                            margin: EdgeInsets.only(left: screenWidth * 0.04),
-                                            child: Center(
-                                              child: Text(
-                                                items[index].rank,
-                                                style: TextStyle(fontSize: screenWidth * 0.008),
-                                              ),
-                                            ),
-                                          ),
-                                          // Delete Button
-                                          Container(
-                                            margin: EdgeInsets.only(left: screenWidth * 0.11),
-                                            child: Center(
-                                              child: IconButton(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    items.removeAt(index);
-                                                  });
-                                                },
-                                                icon: Icon(Icons.delete),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
                                       ),
-                                    ),
-                                  ),
-                                ),
                               ),
                             ),
+                            SizedBox(height: 20),
+                            if (totalPages > 0) paginationControls(screenWidth),
+                            SizedBox(height: 20),
                           ],
                         ),
                       ),
