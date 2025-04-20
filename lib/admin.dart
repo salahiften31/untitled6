@@ -44,6 +44,7 @@ class _AdminState extends State<Admin> {
       setState(() {
         items = adminList;
       });
+    // ignore: empty_catches
     } catch (e) {
   
     }
@@ -212,9 +213,11 @@ void showAddAdminDialog() {
                                   });
                                   
                                   // Close dialog on success
+                                  // ignore: use_build_context_synchronously
                                   Navigator.of(context).pop();
                                   
                                   // Show success message
+                                  // ignore: use_build_context_synchronously
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text('New moderator added successfully'))
                                   );

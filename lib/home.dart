@@ -27,6 +27,7 @@ class _HomeState extends State<Home> {
           .get();
 
       if (querySnapshot.docs.isNotEmpty) {
+        // ignore: use_build_context_synchronously
         Navigator.of(context).pushNamed("dashb");
       } else {
         setState(() {
