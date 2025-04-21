@@ -28,6 +28,41 @@ class _AdminState extends State<Admin> {
     super.initState();
     fetchAdmins();
   }
+  
+Future<void> deleteAdmin(String adcode) async {
+  try {
+    // First, query for the document with the matching adcode
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('Admin')
+        .where('adcode', isEqualTo: adcode)
+        .get();
+    
+    // Check if we found a document with that adcode
+    if (querySnapshot.docs.isNotEmpty) {
+      // Delete the document using its actual document ID
+      await FirebaseFirestore.instance
+          .collection('Admin')
+          .doc(querySnapshot.docs.first.id)
+          .delete();
+          
+      setState(() {
+        items.removeWhere((pod) => pod.code == adcode);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Admin deleted")),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Admin not found")),
+      );
+    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error deleting Admin: $e")),
+    );
+  }
+}
 
   Future<void> fetchAdmins() async {
     try {
@@ -82,7 +117,126 @@ class _AdminState extends State<Admin> {
       }),
     );
   }
-
+Future<void> showDeleteConfirmationDialog(String adminCode) async {
+  final TextEditingController verificationController = TextEditingController();
+  String? errorMessage;
+  
+  return showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          double screenWidth = MediaQuery.of(context).size.width;
+          double screenHeight = MediaQuery.of(context).size.height;
+          
+          return Dialog(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(35)
+              ),
+              width: screenWidth * 0.3,
+              height: screenHeight * 0.35,
+              child: Column(
+                children: [
+                  Container(
+                    margin: EdgeInsets.only(top: screenHeight * 0.05),
+                    child: Text(
+                      "Confirm Admin Deletion",
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.015,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    margin: EdgeInsets.only(top: screenHeight * 0.03),
+                    width: screenWidth * 0.25,
+                    child: Text(
+                      "Enter verification code to delete this admin",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: screenWidth * 0.01),
+                    ),
+                  ),
+                  Container(
+                    margin: EdgeInsets.only(top: screenHeight * 0.03),
+                    width: screenWidth * 0.25,
+                    child: TextField(
+                      controller: verificationController,
+                      decoration: InputDecoration(
+                        hintText: "Verification code",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        errorText: errorMessage,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    margin: EdgeInsets.only(top: screenHeight * 0.05),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: screenWidth * 0.1,
+                          height: screenHeight * 0.06,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(100),
+                            color: Colors.grey[300],
+                          ),
+                          child: MaterialButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: Text(
+                              "Cancel",
+                              style: TextStyle(
+                                fontSize: screenWidth * 0.01,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: screenWidth * 0.02),
+                        Container(
+                          width: screenWidth * 0.1,
+                          height: screenHeight * 0.06,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(100),
+                            color: Color(0xFF4b68ff),
+                          ),
+                          child: MaterialButton(
+                            onPressed: () async {
+                              if (verificationController.text.trim() == "slh3110") {
+                                Navigator.of(context).pop();
+                                // Call the deleteAdmin method with the admin code
+                                await deleteAdmin(adminCode);
+                              } else {
+                                setDialogState(() {
+                                  errorMessage = "Invalid verification code";
+                                });
+                              }
+                            },
+                            child: Text(
+                              "Delete",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: screenWidth * 0.01,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 // Inside your _AdminState class, add a new controller for the name field:
 final TextEditingController nameController = TextEditingController();
 
@@ -264,6 +418,7 @@ void showAddAdminDialog() {
     }
   );
 }
+
 
   @override
   Widget build(BuildContext context) {
@@ -616,19 +771,13 @@ void showAddAdminDialog() {
                                                   margin: EdgeInsets.only(left: screenWidth * 0.11),
                                                   child: Center(
                                                     child: IconButton(
-                                                      onPressed: () {
-                                                        // Calculate the real index in the items list
-                                                        int actualIndex = (currentPage - 1) * itemsPerPage + index;
-                                                        setState(() {
-                                                          if (actualIndex < items.length) {
-                                                            items.removeAt(actualIndex);
-                                                            // Handle the case where we delete the last item on a page
-                                                            if (paginatedItems.isEmpty && currentPage > 1) {
-                                                              currentPage--;
-                                                            }
-                                                          }
-                                                        });
-                                                      },
+                                                   // Replace your existing IconButton onPressed with this:
+onPressed: () {
+  int actualIndex = (currentPage - 1) * itemsPerPage + index;
+  if (actualIndex < items.length) {
+    showDeleteConfirmationDialog(items[actualIndex].code);
+  }
+},
                                                       icon: Icon(Icons.delete),
                                                     ),
                                                   ),

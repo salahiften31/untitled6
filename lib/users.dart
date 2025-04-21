@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:untitled6/home.dart';
 import 'package:intl/intl.dart';
+import 'package:untitled6/main.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class Users extends StatefulWidget {
   const Users({super.key});
@@ -48,6 +50,7 @@ Future<void> fetchPods(id) async {
         likes: data['likes'] ?? '0', 
         comments: data['comments'] ?? '0', 
         lis: data['vue'] ?? '0', 
+        id: data['id'] ?? '0', 
       );
     }).toList();
 
@@ -58,6 +61,103 @@ Future<void> fetchPods(id) async {
     print("Pods set in state: ${pods.length}");
   } catch (e) {
     print("Error fetching pods: $e");
+  }
+}
+Future deleteUserAccount(String userId) async {
+  try {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Center(child: CircularProgressIndicator());
+      },
+    );
+    
+    // Step 1: Find and delete the user document
+    final userDocs = await FirebaseFirestore.instance
+        .collection('users')
+        .where('userId', isEqualTo: userId)
+        .get();
+    
+    for (var doc in userDocs.docs) {
+      await doc.reference.delete();
+      print('User deleted from Firestore: ${doc.id}');
+    }
+    
+    // Step 2: Find all relationships where the deleted user is following others
+    final following = await FirebaseFirestore.instance
+        .collection('follow')
+        .where('idfollowers', isEqualTo: userId)
+        .get();
+    
+    // Get each followed channel ID and decrement their followers count
+    for (var doc in following.docs) {
+      String followedUserId = doc.data()['idfollowing'];
+      
+      // Get the channel document of the followed user
+      final channelDocs = await FirebaseFirestore.instance
+          .collection('channels')
+          .where('userId', isEqualTo: followedUserId)
+          .get();
+      
+      if (channelDocs.docs.isNotEmpty) {
+        var channelDoc = channelDocs.docs.first;
+        int currentFollowers = channelDoc.data()['followers'] ?? 0;
+        if (currentFollowers > 0) {
+          await channelDoc.reference.update({'followers': currentFollowers - 1});
+          print('Updated follower count for channel: ${channelDoc.id}');
+        }
+      }
+      
+      // Delete the follow relationship
+      await doc.reference.delete();
+    }
+    
+    // Step 3: Find all relationships where others are following the deleted user
+    final followers = await FirebaseFirestore.instance
+        .collection('follow')
+        .where('idfollowing', isEqualTo: userId)
+        .get();
+    
+    // Get each follower's channel ID and decrement their following count
+    for (var doc in followers.docs) {
+      String followerUserId = doc.data()['idfollowers'];
+      
+      // Get the channel document of the follower user
+      final channelDocs = await FirebaseFirestore.instance
+          .collection('channels')
+          .where('userId', isEqualTo: followerUserId)
+          .get();
+      
+      if (channelDocs.docs.isNotEmpty) {
+        var channelDoc = channelDocs.docs.first;
+        int currentFollowing = channelDoc.data()['following'] ?? 0;
+        if (currentFollowing > 0) {
+          await channelDoc.reference.update({'following': currentFollowing - 1});
+          print('Updated following count for channel: ${channelDoc.id}');
+        }
+      }
+      
+      // Delete the follow relationship
+      await doc.reference.delete();
+    }
+
+    // Close loading indicator and show success message
+    Navigator.of(context, rootNavigator: true).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("User account deleted successfully")),
+    );
+    
+    // Refresh the user list
+    fetchuser();
+  } catch (e) {
+    // Close loading indicator and show error message
+    Navigator.of(context, rootNavigator: true).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error deleting user account: ${e.toString()}")),
+    );
+    print("Error deleting user account: $e");
   }
 }
   Future<void> fetchuser() async {
@@ -169,7 +269,309 @@ Future<void> fetchPods(id) async {
       }),
     );
   }
+Future<void> showDeleteUserDialog(String userId) async {
+  final TextEditingController verificationController = TextEditingController();
+  String? errorMessage;
+  bool deleteUser = true;
+  bool deleteChannel = true;
+  
+  return showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return StatefulBuilder(
+        builder: (context, setDialogState) {
+          double screenWidth = MediaQuery.of(context).size.width;
+          double screenHeight = MediaQuery.of(context).size.height;
+          
+          return Dialog(
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(35)
+              ),
+              width: screenWidth * 0.35,
+              height: screenHeight * 0.45,
+              child: Column(
+                children: [
+                  Container(
+                    margin: EdgeInsets.only(top: screenHeight * 0.05),
+                    child: Text(
+                      "Confirm User Deletion",
+                      style: TextStyle(
+                        fontSize: screenWidth * 0.015,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    margin: EdgeInsets.only(top: screenHeight * 0.03),
+                    width: screenWidth * 0.25,
+                    child: Text(
+                      "Enter verification code and select what to delete",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: screenWidth * 0.01),
+                    ),
+                  ),
+                  Container(
+                    margin: EdgeInsets.only(top: screenHeight * 0.03),
+                    width: screenWidth * 0.25,
+                    child: TextField(
+                      controller: verificationController,
+                      decoration: InputDecoration(
+                        hintText: "Verification code",
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        errorText: errorMessage,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    margin: EdgeInsets.only(top: screenHeight * 0.03),
+                    width: screenWidth * 0.25,
+                    child: Row(
+                      children: [
+                        Checkbox(
+                          value: deleteUser,
+                          onChanged: (value) {
+                            setDialogState(() {
+                              deleteUser = value ?? true;
+                            });
+                          },
+                        ),
+                        Text(
+                          "Delete User",
+                          style: TextStyle(fontSize: screenWidth * 0.01),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    width: screenWidth * 0.25,
+                    child: Row(
+                      children: [
+                        Checkbox(
+                          value: deleteChannel,
+                          onChanged: (value) {
+                            setDialogState(() {
+                              deleteChannel = value ?? true;
+                            });
+                          },
+                        ),
+                        Text(
+                          "Delete Channel",
+                          style: TextStyle(fontSize: screenWidth * 0.01),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    margin: EdgeInsets.only(top: screenHeight * 0.05),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: screenWidth * 0.1,
+                          height: screenHeight * 0.06,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(100),
+                            color: Colors.grey[300],
+                          ),
+                          child: MaterialButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                            },
+                            child: Text(
+                              "Cancel",
+                              style: TextStyle(
+                                fontSize: screenWidth * 0.01,
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: screenWidth * 0.02),
+                        Container(
+                          width: screenWidth * 0.1,
+                          height: screenHeight * 0.06,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(100),
+                            color: Color(0xFF4b68ff),
+                          ),
+                          child: MaterialButton(
+                            onPressed: () async {
+                              if (verificationController.text.trim() == "slh3110") {
+                                Navigator.of(context).pop();
+                                // Call methods to delete user and/or channel based on checkbox values
+                                if (deleteUser) {
+                                //   await deleteUserAccount(userId);
+                                }
+                                if (deleteChannel) {
+                                  // await deleteUserChannel(channelId);
+                                }
+                                
+                                // Show success message
+                                String message = "";
+                                if (deleteUser && deleteChannel) {
+                                  deleteUserAccount( userId);
+                                    deleteUserChannel(userId );
+                                  message = "User and channel deleted successfully";
+                                }  else if (deleteChannel) {
+                                 deleteUserChannel(userId );
+                                  message = "chanel deleted successfully";
+                                
+                                }
+                                
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text(message)),
+                                );
+                                
+                                // Refresh the user list
+                                fetchuser(); // You'll need to implement this method
+                              } else {
+                                setDialogState(() {
+                                  errorMessage = "Invalid verification code";
+                                });
+                              }
+                            },
+                            child: Text(
+                              "Delete",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: screenWidth * 0.01,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 
+
+Future<void> deleteUserChannel(String userId) async {
+  try {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Center(child: CircularProgressIndicator());
+      },
+    );
+
+    // Initialize Supabase client
+   final supabase = Supabase.instance.client;
+    
+    // Step 1: Find and delete the channel document
+    final channelDocs = await FirebaseFirestore.instance
+        .collection('channels')
+        .where('userId', isEqualTo: userId)
+        .get();
+    
+    for (var doc in channelDocs.docs) {
+
+      await doc.reference.delete();
+      print('Channel deleted from Firestore: ${doc.id}');
+    }
+
+    // Step 2: Find and delete all podcasts by this user
+    final podcastDocs = await FirebaseFirestore.instance
+        .collection('podcasts')
+        .where('idUser', isEqualTo: userId)
+        .get();
+    
+    for (var doc in podcastDocs.docs) {
+     
+      // Delete the podcast document from Firestore
+      await doc.reference.delete();
+    }
+        final playlisDocs = await FirebaseFirestore.instance
+        .collection('podcasts')
+        .where('idUser', isEqualTo: userId)
+        .get();
+    
+    for (var doc in playlisDocs.docs) {
+     
+      // Delete the podcast document from Firestore
+      await doc.reference.delete();
+    }
+    
+
+    // Close loading indicator and show success message
+    Navigator.of(context, rootNavigator: true).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Channel and associated podcasts deleted successfully")),
+    );
+  } catch (e) {
+    // Close loading indicator and show error message
+    Navigator.of(context, rootNavigator: true).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error deleting channel: ${e.toString()}")),
+    );
+    print("Error deleting channel: $e");
+  }
+}
+Future<void> deletePodcast(String podcastId) async {
+  try {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Center(child: CircularProgressIndicator());
+      },
+    );
+
+    // Initialize Supabase client
+    // Find the podcast document by ID
+    final podcastDoc = await FirebaseFirestore.instance
+        .collection('podcasts')
+        .doc(podcastId)
+        .get();
+    
+    if (podcastDoc.exists) {
+      // Delete the podcast document from Firestore
+      await FirebaseFirestore.instance.collection('podcasts').doc(podcastId).delete();
+      print('Podcast deleted from Firestore: $podcastId');
+      
+      // Close loading indicator and show success message
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Podcast deleted successfully")),
+      );
+      
+      // Refresh pods list if needed
+      if (pods.any((pod) => pod.id == podcastId)) {
+        // Refresh the pods list for the current user
+        final currentUser = paginatedItems.isNotEmpty ? paginatedItems[0].userId : null;
+        if (currentUser != null) {
+          await fetchPods(currentUser);
+        }
+      }
+    } else {
+      // Podcast not found
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Podcast not found")),
+      );
+    }
+  } catch (e) {
+    // Close loading indicator and show error message
+    Navigator.of(context, rootNavigator: true).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error deleting podcast: ${e.toString()}")),
+    );
+    print("Error deleting podcast: $e");
+  }
+}
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
@@ -724,7 +1126,8 @@ Future<void> fetchPods(id) async {
                         Container(
                           margin: EdgeInsets.only(left: screenWidth * 0.008),
                           child: IconButton(
-                            onPressed: () {},
+                            onPressed: () { deletePodcast(pods[index].id);
+                              fetchPods(paginatedItems[index].userId);},
                             icon: Icon(Icons.delete_outline),
                           ),
                         ),
@@ -831,41 +1234,11 @@ Future<void> fetchPods(id) async {
                                                   child: Center(
                                                     child: IconButton(
                                                       onPressed: () {
-                                                        showDialog(
-                                                          context: context,
-                                                          builder: (BuildContext context) {
-                                                            return AlertDialog(
-                                                              title: Text("Delete User"),
-                                                              content: Text("Are you sure you want to delete this user?"),
-                                                              actions: [
-                                                                TextButton(
-                                                                  onPressed: () {
-                                                                    Navigator.of(context).pop();
-                                                                  },
-                                                                  child: Text("Cancel"),
-                                                                ),
-                                                                TextButton(
-                                                                  onPressed: () {
-                                                                    // Remove from the main list, not just paginated view
-                                                                    final userToDelete = paginatedItems[index];
-                                                                    setState(() {
-                                                                      users.remove(userToDelete);
-                                                                      // If page becomes empty after deletion, go to previous page
-                                                                      if (paginatedItems.isEmpty && currentPage > 1) {
-                                                                        currentPage--;
-                                                                      }
-                                                                    });
-                                                                    Navigator.of(context).pop();
-                                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                                      SnackBar(content: Text("User deleted")),
-                                                                    );
-                                                                  },
-                                                                  child: Text("Delete"),
-                                                                ),
-                                                              ],
-                                                            );
-                                                          },
-                                                        );
+                                                         int actualIndex = (currentPage - 1) * itemsPerPage + index;
+  if (actualIndex < users.length) {
+    // Assuming your User class has userId and channelId properties
+    showDeleteUserDialog(users[actualIndex].userId);
+  }
                                                       },
                                                       icon: Icon(Icons.delete),
                                                     ),
@@ -941,6 +1314,7 @@ final String userId;
 class Pod {
  final String picture;
  final String name;
+ final String id;
  final int likes;
  final int comments;
  final int lis;
@@ -950,6 +1324,7 @@ required this.name,
 required this.likes,
 required this.comments,
 required this.lis,
+required this.id,
  });
 
 
