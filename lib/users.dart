@@ -1,5 +1,6 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:untitled6/home.dart';
 import 'package:intl/intl.dart';
@@ -12,6 +13,8 @@ class Users extends StatefulWidget {
 }
 
 class _UsersState extends State<Users> {
+  List<Pod> pods = [];
+
   bool isHovered = false;
   bool isHovered1 = false;
   bool isHovered2 = false;
@@ -20,22 +23,49 @@ class _UsersState extends State<Users> {
   late String te;
   List<USR> users = [];
   int currentPage = 1;
-  final int itemsPerPage = 2;
+  final int itemsPerPage = 1;
 
   @override
   void initState() {
     super.initState();
     fetchuser();
   }
+Future<void> fetchPods(id) async {
+  try {
+    print("Fetching pods for user: $id");
+    final querySnapshot = await FirebaseFirestore.instance
+      .collection('podcasts')
+      .where('idUser', isEqualTo: id)
+      .get();
+    
+    print("Found ${querySnapshot.docs.length} pods");
+    
+    final podsList = querySnapshot.docs.map((doc) {
+      final data = doc.data();
+      return Pod(
+        name: data['name'] ?? '',
+        picture: data['urlPhoto'] ?? '',
+        likes: data['likes'] ?? '0', 
+        comments: data['comments'] ?? '0', 
+        lis: data['vue'] ?? '0', 
+      );
+    }).toList();
 
+    setState(() {
+      pods = podsList;
+    });
+    
+    print("Pods set in state: ${pods.length}");
+  } catch (e) {
+    print("Error fetching pods: $e");
+  }
+}
   Future<void> fetchuser() async {
     try {
       final querySnapshot = await FirebaseFirestore.instance.collection('users').get();
-      print("Fetched ${querySnapshot.docs.length} users");
 
       final usersList = await Future.wait(querySnapshot.docs.map((doc) async {
         final data = doc.data();
-        print("User data: $data");
 
         // Handle Timestamp conversion
         String formattedDate = '';
@@ -71,7 +101,7 @@ class _UsersState extends State<Users> {
               channelPhotoUrl = channelData['photoUrl']?.toString() ?? '';
             }
           } catch (e) {
-            print("Error fetching channel data: $e");
+            exit(0);
           }
         }
 
@@ -95,10 +125,8 @@ class _UsersState extends State<Users> {
 
       setState(() {
         users = usersList;
-        print("Users list updated: ${users.length} users");
       });
     } catch (e) {
-      print("Error fetching users: $e");
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error loading users: ${e.toString()}")),
       );
@@ -492,149 +520,235 @@ class _UsersState extends State<Users> {
                                                   margin: EdgeInsets.only(left: screenWidth * 0.018),
                                                   child: Center(
                                                     child: TextButton(
-                                                      onPressed: () {
-                                                        setState(() {
-                                                          showDialog(
-                                                            context: context,
-                                                            builder: (BuildContext context) {
-                                                              return Dialog(
-                                                                child: Container(
-                                                                  decoration: BoxDecoration(
-                                                                    color: Colors.white,
-                                                                    border: Border.all(color: Colors.black12),
-                                                                    borderRadius: BorderRadius.circular(20),
-                                                                  ),
-                                                                  width: screenWidth * 0.4,
-                                                                  child: Column(
-                                                                    mainAxisSize: MainAxisSize.min, // Make dialog size fit content
-                                                                    children: [
-                                                                      // User info part
-                                                                      Container(
-                                                                        decoration: BoxDecoration(
-                                                                          borderRadius: BorderRadius.all(Radius.circular(50)),
-                                                                          color: Colors.white,
-                                                                        ),
-                                                                        height: screenHeight * 0.265,
-                                                                        width: screenWidth * 0.45,
-                                                                        child: SizedBox(
-                                                                          height: screenHeight * 0.1,
-                                                                          child: Column(
-                                                                            crossAxisAlignment: CrossAxisAlignment.center,
-                                                                            children: [
-                                                                              Center(
-                                                                                child: Container(
-                                                                                  decoration: BoxDecoration(
-                                                                                    borderRadius: BorderRadius.all(Radius.circular(50)),
-                                                                                    color: Colors.black,
-                                                                                  ),
-                                                                                  height: screenHeight * 0.075,
-                                                                                  width: screenWidth * 0.04,
-                                                                                  margin: EdgeInsets.only(top: screenHeight * 0.03),
-                                                                                  child: ClipOval(
-                                                                                    child: Image.network(
-                                                                                      paginatedItems[index].channelPhotoUrl ,
-                                                                                       
-                                                                                        
-                                                                                      fit: BoxFit.cover,
-                                                                                      errorBuilder: (context, error, stackTrace) {
-                                                                                        return Icon(Icons.person, color: Colors.white);
-                                                                                      },
-                                                                                    ),
-                                                                                  ),
-                                                                                ),
-                                                                              ),
-                                                                              Container(
-                                                                                margin: EdgeInsets.only(top: screenHeight * 0.02),
-                                                                                child: Text(
-                                                                                  paginatedItems[index].chanel,
-                                                                                  style: TextStyle(fontSize: screenHeight * 0.02),
-                                                                                ),
-                                                                              ),
-                                                                              Container(
-                                                                                margin: EdgeInsets.only(left: screenWidth * 0.1, top: screenHeight * 0.03),
-                                                                                child: Center(
-                                                                                  child: Row(
-                                                                                    children: [
-                                                                                      Column(
-                                                                                        children: [
-                                                                                          Text("follows  ", style: TextStyle(fontSize: screenHeight * 0.018)),
-                                                                                          Container(
-                                                                                            margin: EdgeInsets.only(top: screenHeight * 0.005),
-                                                                                            child: Text(
-                                                                                              "${paginatedItems[index].following}", 
-                                                                                              style: TextStyle(fontSize: screenHeight * 0.015)
-                                                                                            ),
-                                                                                          ),
-                                                                                        ],
-                                                                                      ),
-                                                                                      Container(
-                                                                                        margin: EdgeInsets.only(left: screenWidth * 0.02),
-                                                                                        child: Column(
-                                                                                          children: [
-                                                                                            Text("followers ", style: TextStyle(fontSize: screenHeight * 0.018)),
-                                                                                            Container(
-                                                                                              margin: EdgeInsets.only(top: screenHeight * 0.005),
-                                                                                              child: Text(
-                                                                                                "${paginatedItems[index].followers}", 
-                                                                                                style: TextStyle(fontSize: screenHeight * 0.015)
-                                                                                              ),
-                                                                                            ),
-                                                                                          ],
-                                                                                        ),
-                                                                                      ),
-                                                                                      Container(
-                                                                                        margin: EdgeInsets.only(left: screenWidth * 0.02),
-                                                                                        child: Column(
-                                                                                          children: [
-                                                                                            Text("likes ", style: TextStyle(fontSize: screenHeight * 0.018)),
-                                                                                            Container(
-                                                                                              margin: EdgeInsets.only(top: screenHeight * 0.005),
-                                                                                              child: Text(
-                                                                                                "${paginatedItems[index].likes}", 
-                                                                                                style: TextStyle(fontSize: screenHeight * 0.015)
-                                                                                              ),
-                                                                                            ),
-                                                                                          ],
-                                                                                        ),
-                                                                                      ),
-                                                                                      Container(
-                                                                                        margin: EdgeInsets.only(left: screenWidth * 0.02),
-                                                                                        child: Column(
-                                                                                          children: [
-                                                                                            Text("pods ", style: TextStyle(fontSize: screenHeight * 0.018)),
-                                                                                            Container(
-                                                                                              margin: EdgeInsets.only(top: screenHeight * 0.005),
-                                                                                              child: Text(
-                                                                                                "${paginatedItems[index].pods}", 
-                                                                                                style: TextStyle(fontSize: screenHeight * 0.015)
-                                                                                              ),
-                                                                                            ),
-                                                                                          ],
-                                                                                        ),
-                                                                                      ),
-                                                                                    ],
-                                                                                  ),
-                                                                                ),
-                                                                              ),
-                                                                            ],
-                                                                          ),
-                                                                        ),
-                                                                      ),
-                                                                      // Close button
-                                                                      TextButton(
-                                                                        onPressed: () {
-                                                                          Navigator.of(context).pop();
-                                                                        },
-                                                                        child: Text("Close"),
-                                                                      ),
-                                                                    ],
-                                                                  ),
-                                                                ),
-                                                              );
-                                                            },
-                                                          );
-                                                        });
-                                                      },
+                                                     onPressed: () async {
+  await fetchPods(paginatedItems[index].userId); // Wait for pods to load
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return Dialog(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.black12),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        width: screenWidth * 0.4,
+        child: Column(
+          mainAxisSize: MainAxisSize.min, // Make dialog size fit content
+          children: [
+            // User info part
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.all(Radius.circular(50)),
+                color: Colors.white,
+              ),
+              height: screenHeight * 0.265,
+              width: screenWidth * 0.45,
+              child: SizedBox(
+                height: screenHeight * 0.1,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Center(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.all(Radius.circular(50)),
+                          color: Colors.black,
+                        ),
+                        height: screenHeight * 0.075,
+                        width: screenWidth * 0.04,
+                        margin: EdgeInsets.only(top: screenHeight * 0.03),
+                        child: ClipOval(
+                          child: Image.network(
+                            paginatedItems[index].channelPhotoUrl,
+                            fit: BoxFit.cover,
+                            // Removed caching parameters that were causing issues
+                            errorBuilder: (context, error, stackTrace) {
+                              return Icon(Icons.person, color: Colors.white);
+                            },
+                          ),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      margin: EdgeInsets.only(top: screenHeight * 0.02),
+                      child: Text(
+                        paginatedItems[index].chanel,
+                        style: TextStyle(fontSize: screenHeight * 0.02),
+                      ),
+                    ),
+                    Container(
+                      margin: EdgeInsets.only(left: screenWidth * 0.1, top: screenHeight * 0.03),
+                      child: Center(
+                        child: Row(
+                          children: [
+                            Column(
+                              children: [
+                                Text("follows  ", style: TextStyle(fontSize: screenHeight * 0.018)),
+                                Container(
+                                  margin: EdgeInsets.only(top: screenHeight * 0.005),
+                                  child: Text(
+                                    "${paginatedItems[index].following}",
+                                    style: TextStyle(fontSize: screenHeight * 0.015)
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Container(
+                              margin: EdgeInsets.only(left: screenWidth * 0.02),
+                              child: Column(
+                                children: [
+                                  Text("followers ", style: TextStyle(fontSize: screenHeight * 0.018)),
+                                  Container(
+                                    margin: EdgeInsets.only(top: screenHeight * 0.005),
+                                    child: Text(
+                                      "${paginatedItems[index].followers}",
+                                      style: TextStyle(fontSize: screenHeight * 0.015)
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              margin: EdgeInsets.only(left: screenWidth * 0.02),
+                              child: Column(
+                                children: [
+                                  Text("likes ", style: TextStyle(fontSize: screenHeight * 0.018)),
+                                  Container(
+                                    margin: EdgeInsets.only(top: screenHeight * 0.005),
+                                    child: Text(
+                                      "${paginatedItems[index].likes}",
+                                      style: TextStyle(fontSize: screenHeight * 0.015)
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              margin: EdgeInsets.only(left: screenWidth * 0.02),
+                              child: Column(
+                                children: [
+                                  Text("pods ", style: TextStyle(fontSize: screenHeight * 0.018)),
+                                  Container(
+                                    margin: EdgeInsets.only(top: screenHeight * 0.005),
+                                    child: Text(
+                                      "${paginatedItems[index].pods}",
+                                      style: TextStyle(fontSize: screenHeight * 0.015)
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            // Pod list - limiting height and using builder for lazy loading
+            Container(
+              color: Colors.white,
+              width: screenWidth * 0.4,
+              height: screenHeight * 0.4, // Fixed height instead of Expanded
+              child: ListView.builder( // Changed to ListView.builder for efficiency
+                itemCount: pods.length,
+                itemBuilder: (context, index) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black12, width: 3),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    margin: EdgeInsets.only(top: screenHeight * 0.04),
+                    width: screenWidth * 0.38,
+                    height: screenHeight * 0.15,
+                    child: Row(
+                      children: [
+                        Container(
+                          
+                          margin: EdgeInsets.only(left: screenWidth * 0.03),
+                          height: screenHeight * 0.08,
+                          width: screenWidth * 0.05,
+                          child: ClipRRect(
+                            child: Image.network(
+                              pods[index].picture, 
+                              fit: BoxFit.fill,
+                            ),
+                          ),
+                        ),
+                        Container(
+                          margin: EdgeInsets.only(left: screenWidth * 0.03),
+                          width: screenWidth * 0.08,
+                          child: Text(
+                            pods[index].name,
+                            style: TextStyle(fontSize: screenWidth * 0.01),
+                          ),
+                        ),
+                        Container(
+                          height: screenHeight * 0.15,
+                          width: screenWidth * 0.1,
+                          margin: EdgeInsets.only(left: screenWidth * 0.05),
+                          child: Column(
+                            children: [
+                              Container(
+                                margin: EdgeInsets.only(top: screenHeight * 0.02),
+                                height: screenHeight * 0.017,
+                                child: ListTile(
+                                  leading: Icon(Icons.headphones_outlined, size: screenHeight * 0.015),
+                                  title: Text(pods[index].lis.toString(), style: TextStyle(fontSize: screenHeight * 0.015)),
+                                  dense: true, // Make ListTile more compact
+                                ),
+                              ),
+                              Container(
+                                height: screenHeight * 0.02,
+                                margin: EdgeInsets.only(top: screenHeight * 0.015),
+                                child: ListTile(
+                                  leading: Icon(Icons.thumb_up_alt_outlined, size: screenHeight * 0.015),
+                                  title: Text(pods[index].likes.toString(), style: TextStyle(fontSize: screenHeight * 0.015)),
+                                  dense: true,
+                                ),
+                              ),
+                              Container(
+                                height: screenHeight * 0.02,
+                                margin: EdgeInsets.only(top: screenHeight * 0.015),
+                                child: ListTile(
+                                  leading: Icon(Icons.comment_outlined, size: screenHeight * 0.015),
+                                  title: Text(pods[index].comments.toString(), style: TextStyle(fontSize: screenHeight * 0.015)),
+                                  dense: true,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          margin: EdgeInsets.only(left: screenWidth * 0.008),
+                          child: IconButton(
+                            onPressed: () {},
+                            icon: Icon(Icons.delete_outline),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+            // Close button with improved performance
+            TextButton(
+              onPressed: () {
+                // Use pop without rebuilding the entire dialog
+                Navigator.of(context).pop();
+              },
+              child: Text("Close"),
+            ),
+          ],
+        ),
+      ),
+    );
+    },
+  );
+},
                                                       child: Text(
                                                         paginatedItems[index].chanel,
                                                         style: TextStyle(fontSize: screenWidth * 0.008),
@@ -755,7 +869,9 @@ class _UsersState extends State<Users> {
                                                       },
                                                       icon: Icon(Icons.delete),
                                                     ),
+                                                    
                                                   ),
+                                                  
                                                 ),
                                               ],
                                             ),
@@ -821,4 +937,20 @@ final String userId;
     required this.userId,
   });
   
+}
+class Pod {
+ final String picture;
+ final String name;
+ final int likes;
+ final int comments;
+ final int lis;
+ Pod ({
+required this.picture,
+required this.name,
+required this.likes,
+required this.comments,
+required this.lis,
+ });
+
+
 }
