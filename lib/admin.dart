@@ -67,15 +67,18 @@ Future<void> deleteAdmin(String adcode) async {
         items.removeWhere((pod) => pod.code == adcode);
       });
 
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Admin deleted")),
       );
     } else {
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Admin not found")),
       );
     }
   } catch (e) {
+    // ignore: use_build_context_synchronously
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Error deleting Admin: $e")),
     );
@@ -711,7 +714,7 @@ void showAddAdminDialog() {
                                 children: [
                                   Container(
                                     margin: EdgeInsets.only(left: screenWidth * 0.1),
-                                    child: Text("Name", style: TextStyle(fontSize: screenWidth * 0.008)),
+                                    child: Center(child: Text("Name", style: TextStyle(fontSize: screenWidth * 0.008))),
                                   ),
                                   Container(
                                     margin: EdgeInsets.only(left: screenWidth * 0.09),
@@ -785,7 +788,9 @@ void showAddAdminDialog() {
                                                 Container(
                                                   width: screenWidth * 0.08,
                                                   margin: EdgeInsets.only(left: screenWidth * 0.04),
-                                                  child: Center(
+                                                  child: 
+                                                  
+                                                  Center(
                                                     child: Text(
                                                       paginatedItems[index].rank,
                                                       style: TextStyle(fontSize: screenWidth * 0.008),
@@ -793,21 +798,23 @@ void showAddAdminDialog() {
                                                   ),
                                                 ),
                                                 // Delete Button
-                                                Container(
-                                                  margin: EdgeInsets.only(left: screenWidth * 0.11),
-                                                  child: Center(
-                                                    child: IconButton(
-                                                   // Replace your existing IconButton onPressed with this:
-onPressed: () {
-  int actualIndex = (currentPage - 1) * itemsPerPage + index;
-  if (actualIndex < items.length) {
-    showDeleteConfirmationDialog(items[actualIndex].code);
-  }
-},
-                                                      icon: Icon(Icons.delete),
-                                                    ),
-                                                  ),
-                                                ),
+                                             // Delete Button - Only show if rank isn't "creator"
+Container(
+  margin: EdgeInsets.only(left: screenWidth * 0.11),
+  child: Center(
+    child: paginatedItems[index].rank.toLowerCase() != "creator" 
+      ? IconButton(
+          onPressed: () {
+            int actualIndex = (currentPage - 1) * itemsPerPage + index;
+            if (actualIndex < items.length) {
+              showDeleteConfirmationDialog(items[actualIndex].code);
+            }
+          },
+          icon: Icon(Icons.delete),
+        )
+      : SizedBox(), // Empty container when rank is "creator"
+  ),
+),
                                               ],
                                             ),
                                           ),

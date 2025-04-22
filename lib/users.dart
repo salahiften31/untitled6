@@ -1138,7 +1138,7 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
                           margin: EdgeInsets.only(left: screenWidth * 0.03),
                           height: screenHeight * 0.08,
                           width: screenWidth * 0.05,
-                          child: ClipRRect(
+                          child: ClipOval(
                             child: Image.network(
                               pods[index].picture, 
                               fit: BoxFit.fill,
