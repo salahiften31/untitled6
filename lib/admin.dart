@@ -22,13 +22,31 @@ class _AdminState extends State<Admin> {
   List<Item> items = [];
   int currentPage = 1;
   final int itemsPerPage = 2;
+    List<Item> filteredAdmins = [];
+TextEditingController searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     fetchAdmins();
+      searchController.addListener(() {
+    filterAdmins();
+  });
   }
-  
+  void filterAdmins() {
+  String searchTerm = searchController.text.toLowerCase();
+  setState(() {
+    if (searchTerm.isEmpty) {
+      filteredAdmins = List.from(items);
+    } else {
+      filteredAdmins = items.where((admin) {
+        return admin.name.toLowerCase().contains(searchTerm)  ;
+      }).toList();
+    }
+    // Reset to first page when search changes
+    currentPage = 1;
+  });
+}
 Future<void> deleteAdmin(String adcode) async {
   try {
     // First, query for the document with the matching adcode
@@ -78,19 +96,23 @@ Future<void> deleteAdmin(String adcode) async {
 
       setState(() {
         items = adminList;
+        filteredAdmins = adminList;
       });
+
+      
     // ignore: empty_catches
     } catch (e) {
   
     }
   }
-    List<Item> get paginatedItems {
-    int start = (currentPage - 1) * itemsPerPage;
-    int end = start + itemsPerPage;
-    return items.sublist(start, end > items.length ? items.length : end);
-  }
+List<Item> get paginatedItems {
+  int start = (currentPage - 1) * itemsPerPage;
+  int end = start + itemsPerPage;
+  if (filteredAdmins.isEmpty) return [];
+  return filteredAdmins.sublist(start, end > filteredAdmins.length ? filteredAdmins.length : end);
+}
 
-  int get totalPages => (items.length / itemsPerPage).ceil();
+int get totalPages => (filteredAdmins.length / itemsPerPage).ceil();
 
   Widget paginationControls(double screenWidth) {
     return Row(
@@ -634,17 +656,21 @@ void showAddAdminDialog() {
                           width: screenWidth*0.3,
                           child: Center(
                             child: TextField(
-                              decoration: InputDecoration(
-                                hintText: "search user",
-                                suffixIcon: IconButton(
-                                  onPressed: () {},
-                                  icon: Icon(Icons.search),
-                                ),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(50),
-                                ),
-                              ),
-                            ),
+  controller: searchController,
+  decoration: InputDecoration(
+    hintText: "Search Admin",
+    suffixIcon: IconButton(
+      onPressed: () {
+        searchController.clear();
+      },
+      icon: Icon(Icons.clear),
+    ),
+    prefixIcon: Icon(Icons.search),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(50),
+    ),
+  ),
+)
                           ),
                         ),
                       ),

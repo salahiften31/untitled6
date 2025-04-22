@@ -4,8 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:untitled6/home.dart';
 import 'package:intl/intl.dart';
-import 'package:untitled6/main.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+
 
 class Users extends StatefulWidget {
   const Users({super.key});
@@ -16,6 +15,8 @@ class Users extends StatefulWidget {
 
 class _UsersState extends State<Users> {
   List<Pod> pods = [];
+  List<USR> filteredUsers = [];
+TextEditingController searchController = TextEditingController();
 
   bool isHovered = false;
   bool isHovered1 = false;
@@ -28,10 +29,28 @@ class _UsersState extends State<Users> {
   final int itemsPerPage = 1;
 
   @override
-  void initState() {
-    super.initState();
-    fetchuser();
-  }
+void initState() {
+  super.initState();
+  fetchuser();
+  searchController.addListener(() {
+    filterUsers();
+  });
+}
+void filterUsers() {
+  String searchTerm = searchController.text.toLowerCase();
+  setState(() {
+    if (searchTerm.isEmpty) {
+      filteredUsers = List.from(users);
+    } else {
+      filteredUsers = users.where((user) {
+        return user.name.toLowerCase().contains(searchTerm) ||
+               user.chanel.toLowerCase().contains(searchTerm) ;
+      }).toList();
+    }
+    // Reset to first page when search changes
+    currentPage = 1;
+  });
+}
 Future<void> fetchPods(id) async {
   try {
     print("Fetching pods for user: $id");
@@ -223,9 +242,10 @@ Future deleteUserAccount(String userId) async {
         );
       }).toList());
 
-      setState(() {
-        users = usersList;
-      });
+    setState(() {
+      users = usersList;
+      filteredUsers = usersList; // Initialize filteredUsers with all users
+    });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error loading users: ${e.toString()}")),
@@ -233,15 +253,14 @@ Future deleteUserAccount(String userId) async {
     }
   }
 
-  List<USR> get paginatedItems {
-    int start = (currentPage - 1) * itemsPerPage;
-    int end = start + itemsPerPage;
-    if (users.isEmpty) return [];
-    return users.sublist(start, end > users.length ? users.length : end);
-  }
+List<USR> get paginatedItems {
+  int start = (currentPage - 1) * itemsPerPage;
+  int end = start + itemsPerPage;
+  if (filteredUsers.isEmpty) return [];
+  return filteredUsers.sublist(start, end > filteredUsers.length ? filteredUsers.length : end);
+}
 
-  int get totalPages => (users.length / itemsPerPage).ceil();
-
+int get totalPages => (filteredUsers.length / itemsPerPage).ceil();
   Widget paginationControls(double screenWidth) {
     if (totalPages <= 1) return SizedBox.shrink(); // Don't show pagination if only one page
     
@@ -467,9 +486,7 @@ Future<void> deleteUserChannel(String userId) async {
       },
     );
 
-    // Initialize Supabase client
-   final supabase = Supabase.instance.client;
-    
+    // Initialize Supabase client    
     // Step 1: Find and delete the channel document
     final channelDocs = await FirebaseFirestore.instance
         .collection('channels')
@@ -787,17 +804,21 @@ Future<void> deletePodcast(String podcastId) async {
                         width: 600,
                         child: Center(
                           child: TextField(
-                            decoration: InputDecoration(
-                              hintText: "search user",
-                              suffixIcon: IconButton(
-                                onPressed: () {},
-                                icon: Icon(Icons.search),
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(50),
-                              ),
-                            ),
-                          ),
+  controller: searchController,
+  decoration: InputDecoration(
+    hintText: "Search users",
+    suffixIcon: IconButton(
+      onPressed: () {
+        searchController.clear();
+      },
+      icon: Icon(Icons.clear),
+    ),
+    prefixIcon: Icon(Icons.search),
+    border: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(50),
+    ),
+  ),
+)
                         ),
                       ),
                       // White Container for List
