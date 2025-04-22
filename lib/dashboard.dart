@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:untitled6/Graphe/bar_graphe.dart';
 import 'package:untitled6/home.dart';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
@@ -16,6 +18,58 @@ class _DashboardState extends State<Dashboard> {
   bool isHovered2 = false;
   bool isHovered3 = false;
   bool isHovered4 = false;
+ int totalUsers = 0;
+  int newUsersThisMonth = 0;
+  int totalPodcasts = 0;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // Fetch data when widget initializes
+    fetchMetrics();
+  }
+
+
+    Future<void> fetchMetrics() async {
+    setState(() {
+      isLoading = true;
+    });
+    
+    try {
+      // Get current date and first day of current month
+      final now = DateTime.now();
+      final firstDayOfMonth = DateTime(now.year, now.month, 1);
+      
+      // Get total users
+      final userSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .get();
+      totalUsers = userSnapshot.size;
+      
+      // Get new users this month
+      final newUsersSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('createdAt', isGreaterThanOrEqualTo: firstDayOfMonth)
+          .get();
+      newUsersThisMonth = newUsersSnapshot.size;
+      
+      // Get total podcasts
+      final podcastSnapshot = await FirebaseFirestore.instance
+          .collection('podcasts')
+          .get();
+      totalPodcasts = podcastSnapshot.size;
+      
+      setState(() {
+        isLoading = false;
+      });
+    } catch (e) {
+      print('Error fetching metrics: $e');
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
@@ -238,10 +292,10 @@ borderRadius: BorderRadius.circular(10),
                         alignment: WrapAlignment.spaceAround,
                         children: [
                           _buildDashboardCard(
-                              "New users this month", screenWidth,"11539820.jpg",screenHeight),
-                          _buildDashboardCard("Total users", screenWidth,"11539820.jpg",screenHeight),
+                              "New users this month", screenWidth,"11539820.jpg",screenHeight,newUsersThisMonth.toString()),
+                          _buildDashboardCard("Total users", screenWidth,"11539820.jpg",screenHeight,totalUsers.toString()),
                           _buildDashboardCard(
-                              "New podcasts this month", screenWidth,"38772.jpg",screenHeight),
+                              "New podcasts this month", screenWidth,"38772.jpg",screenHeight,totalPodcasts.toString()),
                         ],
                       ),
 ),
@@ -275,29 +329,49 @@ child: Mybar_G(),
   }
 
   // Helper method to build dashboard cards
-  Widget _buildDashboardCard(String title, double screenWidth,String picture,double screenHeight) {
+ Widget _buildDashboardCard(String title, double screenWidth, String picture, double screenHeight, String value) {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12,width: 3 ),
+        border: Border.all(color: Colors.black12, width: 3),
         borderRadius: BorderRadius.circular(20),
         color: Colors.white,
       ),
       width: screenWidth * 0.2, // 15% of screen width
-      height: screenHeight *0.15, // Fixed height for cards
+      height: screenHeight * 0.15, // Fixed height for cards
       child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-             Padding(
-              padding: EdgeInsets.all(15),
-              child: Text(title),
+          Padding(
+            padding: EdgeInsets.all(15),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                SizedBox(height: 6),
+                Text(
+                  value, // Display the actual value
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue[700],
+                  ),
+                ),
+              ],
             ),
-            Container(
-              height: screenHeight *0.09,
-              margin: EdgeInsets.only(left:screenWidth *0.15),
-              child: ClipRRect(
-                child: Image.asset("assets/$picture"),
-              ),
-            )
+          ),
+          Container(
+            height: screenHeight * 0.045,
+            margin: EdgeInsets.only(left: screenWidth * 0.15),
+            child: ClipRRect(
+              child: Image.asset("assets/$picture"),
+            ),
+          )
         ],
       ),
     );

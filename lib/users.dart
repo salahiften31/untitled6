@@ -589,6 +589,51 @@ Future<void> deletePodcast(String podcastId) async {
     print("Error deleting podcast: $e");
   }
 }
+Future<void> reportUser(String userId) async {
+  try {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Center(child: CircularProgressIndicator());
+      },
+    );
+    
+    // Create a unique reportId
+    String reportId = FirebaseFirestore.instance.collection('reports').doc().id;
+    
+    // Predefined message
+   // Predefined message with corrected text
+String predefinedMessage = "Warning: We've noticed some suspicious activity in your account that violates our community guidelines. We will investigate this matter further. Please be aware that repeated offenses may result in a temporary or permanent ban.";
+    
+    // Add report to Firestore
+    await FirebaseFirestore.instance.collection('reports').doc(reportId).set({
+      'reportId': reportId,
+      'userId': userId,
+      'message': predefinedMessage,
+      'reportedAt': FieldValue.serverTimestamp(),
+       // To identify that an admin made this report
+    });
+    
+    // Close loading indicator
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("User reported successfully")),
+    );
+  } catch (e) {
+    // Close loading indicator
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    // Show error message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error reporting user: ${e.toString()}")),
+    );
+    print("Error reporting user: $e");
+  }
+}
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
@@ -1215,38 +1260,42 @@ Future<void> deletePodcast(String podcastId) async {
                                                   margin: EdgeInsets.only(left: screenWidth * 0.04),
                                                   child: Center(
                                                     child: IconButton(
-                                                      onPressed: () {
-                                                        // Add report functionality
-                                                        showDialog(
-                                                          context: context,
-                                                          builder: (BuildContext context) {
-                                                            return AlertDialog(
-                                                              title: Text("Report User"),
-                                                              content: Text("Do you want to report this user?"),
-                                                              actions: [
-                                                                TextButton(
-                                                                  onPressed: () {
-                                                                    Navigator.of(context).pop();
-                                                                  },
-                                                                  child: Text("Cancel"),
-                                                                ),
-                                                                TextButton(
-                                                                  onPressed: () {
-                                                                    // Add report logic here
-                                                                    Navigator.of(context).pop();
-                                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                                      SnackBar(content: Text("User reported")),
-                                                                    );
-                                                                  },
-                                                                  child: Text("Report"),
-                                                                ),
-                                                              ],
-                                                            );
-                                                          },
-                                                        );
-                                                      },
-                                                      icon: Icon(Icons.warning),
-                                                    ),
+  onPressed: () {
+    int actualIndex = (currentPage - 1) * itemsPerPage + index;
+    if (actualIndex < filteredUsers.length) {
+      // Show a simple confirmation dialog
+      showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text("Report User"),
+            content: Text("Are you sure you want to report this user?"),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  reportUser(filteredUsers[actualIndex].userId);
+                },
+                child: Text("Report"),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.red,
+                ),
+              ),
+            ],
+          );
+        },
+      );
+    }
+  },
+  icon: Icon(Icons.warning),
+  tooltip: "Report User",
+),
                                                   ),
                                                 ),
                                                 // Delete Button
