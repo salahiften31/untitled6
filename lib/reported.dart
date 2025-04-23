@@ -42,7 +42,7 @@ fetchChanel();
         likes: data['likes'] ?? '0', 
         comments: data['comments'] ?? '0', 
         lis: data['vue'] ?? '0', 
-       
+       user : data['idUser'] ?? '0',
   
         id: data['id'] ?? '0', 
       );
@@ -58,6 +58,7 @@ fetchChanel();
     print("Error fetching pods: $e");
   }
 }
+
     Future<void> fetchChanel() async {
   try {
   
@@ -81,9 +82,52 @@ fetchChanel();
       chan = chanList;
     });
     
-    print("Pods set in state: ${pods.length}");
   } catch (e) {
+    // ignore: avoid_print
     print("Error fetching pods: $e");
+  }
+}
+Future<void> reportPod(String userId ,String podname) async {
+  try {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Center(child: CircularProgressIndicator());
+      },
+    );
+    
+    // Create a unique reportId
+    String reportId = FirebaseFirestore.instance.collection('reports').doc().id;
+    
+    // Predefined message
+   // Predefined message with corrected text
+String predefinedMessage = "$podname has been removed from our platform following community reports. This content violated our community guidelines, which are designed to ensure a safe and positive experience for all users. Thank you for helping maintain the quality and integrity of our community.";
+    
+    // Add report to Firestore
+    await FirebaseFirestore.instance.collection('reports').doc(reportId).set({
+      'reportId': reportId,
+      'userId': userId,
+      'message': predefinedMessage,
+      'reportedAt': FieldValue.serverTimestamp(),
+       // To identify that an admin made this report
+    });
+    
+    // Close loading indicator
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    // Show success message
+ 
+  } catch (e) {
+    // Close loading indicator
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    // Show error message
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error reporting user: ${e.toString()}")),
+    );
+    print("Error reporting user: $e");
   }
 }
 Future<void> deleteUserChannel(String chId) async {
@@ -182,6 +226,42 @@ Future<void> deletePod(String id) async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Error deleting podcast: $e")),
     );
+  }
+}
+Future<void> reportcha(String userId ) async {
+  try {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Center(child: CircularProgressIndicator());
+      },
+    );
+    
+    // Create a unique reportId
+    String reportId = FirebaseFirestore.instance.collection('reports').doc().id;
+    
+    // Predefined message
+   // Predefined message with corrected text
+String predefinedMessage = "you channel has been removed from our platform following community reports. This content violated our community guidelines, which are designed to ensure a safe and positive experience for all users. Thank you for helping maintain the quality and integrity of our community.";
+    
+    // Add report to Firestore
+    await FirebaseFirestore.instance.collection('reports').doc(reportId).set({
+      'reportId': reportId,
+      'userId': userId,
+      'message': predefinedMessage,
+      'reportedAt': FieldValue.serverTimestamp(),
+       // To identify that an admin made this report
+    });
+    
+    // Close loading indicator
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    // Show success message
+ 
+  } catch (e) {
+    // Close loading indicator
   }
 }
   @override
@@ -381,188 +461,182 @@ Future<void> deletePod(String id) async {
             ),
           ),
           // Main Content Area
-          SizedBox(child: Container(
-
-child: Row(
-  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  children: [Container(
-    decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 4),
-    borderRadius: BorderRadius.all(Radius.circular(20))
-    
-    
-    ),
-    
-    
-    height: screenHeight*0.9,
-  margin: EdgeInsets.only(left: screenWidth*0.02),
-width: screenWidth*0.3,
-child: ListView(children: [Center(child: Text("Reported chanells",style: TextStyle(fontSize: screenHeight*0.025),),),
-Column(children: List.generate(chan.length, (index)=> Container(
-  margin: EdgeInsets.only(top: screenHeight*0.02),
-  child: Card(
-    shape:RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(50),
-               // Set your desired radius here
-            ),
-    
-    child: Container(
-              padding: EdgeInsets.only(right: screenWidth*0.01),
-  decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 3),
-  borderRadius:BorderRadius.circular(50) ),
-    height: screenHeight*0.08,
-     child: Row (children: [
-       Container(
-
-        margin: EdgeInsets.only(left: screenWidth*0.02),
-      height: screenHeight*0.055,
-      width: screenWidth*0.03,
-         child: ClipOval(
-                                child: Image.network(chan[index].pic, fit: BoxFit.fill),
-                              ),
-       ), 
-                            Container( margin: EdgeInsets.only(left: screenWidth*0.02),  child: Text(chan[index].name,style: TextStyle(fontSize: screenHeight*0.02),)),
-                            Spacer(),
-                            Container( margin: EdgeInsets.only(left: screenWidth*0.05),  child: IconButton(onPressed: (){
-      showDialog(
-                            context: context,
-                            builder: (BuildContext context) {
-                              return AlertDialog(
-                                title: Text("Confirm delete"),
-                                content:
-                                    Text("Are you sure you want to delete?"),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                    },
-                                    child: Text("Cancel"),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                     deleteUserChannel(chan[index].uid);
-                                     Navigator.of(context).pop();
-                                     fetchPods();
-                                    },
-                                    child: Text("delete"),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                            }, icon: Icon(Icons.delete_outline)),)
-      ],)
-      
-    ),
-    
-         
-                  ),
-),),)
-
-
-
-
-],),
-
-
-
-),
-Container(
-    decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 4),
-    borderRadius: BorderRadius.all(Radius.circular(20))
-    
-    ),
-    
-    
-    height: screenHeight*0.9,
-  margin: EdgeInsets.only(left: screenWidth*0.16),
-width: screenWidth*0.3,
-child: ListView(children: [Center(child: Text("Reported Podcasts",style: TextStyle(fontSize: screenHeight*0.025),),),
-Column(children: List.generate(pods.length, (index)=> Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.black12, width: 3),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  margin: EdgeInsets.only(top: screenHeight * 0.04),
-                  width: screenWidth * 0.28,
-                  height: screenHeight * 0.15,
-                  child: Row(
-                    children: [
-                      Container(
-                        margin: EdgeInsets.only(left: screenWidth * 0.025),
-                        height: screenHeight * 0.065,
-                        width: screenWidth * 0.03,
-                        child: ClipOval(
-                          child: Image.network(pods[index].picture, fit: BoxFit.fill),
-                        ),
+          SizedBox(child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [Container(
+              decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 4),
+              borderRadius: BorderRadius.all(Radius.circular(20))
+              
+              
+              ),
+              
+              
+              height: screenHeight*0.9,
+            margin: EdgeInsets.only(left: screenWidth*0.02),
+          width: screenWidth*0.3,
+          child: ListView(children: [Center(child: Text("Reported chanells",style: TextStyle(fontSize: screenHeight*0.025),),),
+          Column(children: List.generate(chan.length, (index)=> Container(
+            margin: EdgeInsets.only(top: screenHeight*0.02),
+            child: Card(
+              shape:RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(50),
+                         // Set your desired radius here
                       ),
-                      Container(
-                       
-                        margin: EdgeInsets.only(left: screenWidth * 0.015),
-                        width: screenWidth * 0.06,
-                        child: Text(
-                          pods[index].name,
-                          style: TextStyle(fontSize: screenWidth * 0.01),
-                        ),
-                      ),  
-  
-                           
-                      Container(
-  margin: EdgeInsets.only(left: screenWidth*0.1),
-                        child: IconButton(
-                          onPressed: () {
-                                  showDialog(
-                            context: context,
-                            builder: (BuildContext context) {
-                              return AlertDialog(
-                                title: Text("Confirm delete"),
-                                content:
-                                    Text("Are you sure you want to delete?"),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () {
-                                      Navigator.of(context).pop();
-                                    },
-                                    child: Text("Cancel"),
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                deletePod(pods[index].id);
-                                     Navigator.of(context).pop();
-                                     fetchPods();
-                                    },
-                                    child: Text("delete"),
-                                  ),
-                                ],
-                              );
-                            },
-                          );
-                          },
-                          icon: Icon(Icons.delete_outline),
-                        ),
-                      ),
-                     
-                    ],
-                  ),
-                ),),)
-
-
-
-
-],),
-),
-
-
-
-
-
-],),
-
-
-
-
-
-
+              
+              child: Container(
+                        padding: EdgeInsets.only(right: screenWidth*0.01),
+            decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 3),
+            borderRadius:BorderRadius.circular(50) ),
+              height: screenHeight*0.08,
+               child: Row (children: [
+                 Container(
+          
+                  margin: EdgeInsets.only(left: screenWidth*0.02),
+                height: screenHeight*0.055,
+                width: screenWidth*0.03,
+                   child: ClipOval(
+                                          child: Image.network(chan[index].pic, fit: BoxFit.fill),
+                                        ),
+                 ), 
+                                      Container( margin: EdgeInsets.only(left: screenWidth*0.02),  child: Text(chan[index].name,style: TextStyle(fontSize: screenHeight*0.02),)),
+                                      Spacer(),
+                                      Container( margin: EdgeInsets.only(left: screenWidth*0.05),  child: IconButton(onPressed: (){
+                showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: Text("Confirm delete"),
+                                          content:
+                                              Text("Are you sure you want to delete?"),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                              },
+                                              child: Text("Cancel"),
+                                            ),
+                                            TextButton(
+                                              onPressed: () {
+                                  reportcha(chan[index].uid);
+                                              //  deleteUserChannel(chan[index].uid);
+                                               Navigator.of(context).pop();
+                                               fetchPods();
+                                              },
+                                              child: Text("delete"),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                      }, icon: Icon(Icons.delete_outline)),)
+                ],)
+                
+              ),
+              
+                   
+                            ),
+          ),),)
+          
+          
+          
+          
+          ],),
+          
+          
+          
           ),
+          Container(
+              decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 4),
+              borderRadius: BorderRadius.all(Radius.circular(20))
+              
+              ),
+              
+              
+              height: screenHeight*0.9,
+            margin: EdgeInsets.only(left: screenWidth*0.16),
+          width: screenWidth*0.3,
+          child: ListView(children: [Center(child: Text("Reported Podcasts",style: TextStyle(fontSize: screenHeight*0.025),),),
+          Column(children: List.generate(pods.length, (index)=> Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.black12, width: 3),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            margin: EdgeInsets.only(top: screenHeight * 0.04),
+                            width: screenWidth * 0.28,
+                            height: screenHeight * 0.15,
+                            child: Row(
+                              children: [
+                                Container(
+                                  margin: EdgeInsets.only(left: screenWidth * 0.025),
+                                  height: screenHeight * 0.065,
+                                  width: screenWidth * 0.03,
+                                  child: ClipOval(
+                                    child: Image.network(pods[index].picture, fit: BoxFit.fill),
+                                  ),
+                                ),
+                                Container(
+                                 
+                                  margin: EdgeInsets.only(left: screenWidth * 0.015),
+                                  width: screenWidth * 0.06,
+                                  child: Text(
+                                    pods[index].name,
+                                    style: TextStyle(fontSize: screenWidth * 0.01),
+                                  ),
+                                ),  
+            
+                                     
+                                Container(
+            margin: EdgeInsets.only(left: screenWidth*0.1),
+                                  child: IconButton(
+                                    onPressed: () {
+                                            showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: Text("Confirm delete"),
+                                          content:
+                                              Text("Are you sure you want to delete?"),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                              },
+                                              child: Text("Cancel"),
+                                            ),
+                                            TextButton(
+                                              onPressed: () {
+                                                
+                                          reportPod(pods[index].id,pods[index].name);
+                                          deletePod(pods[index].id);
+                                               Navigator.of(context).pop();
+                                               fetchPods();
+                                              },
+                                              child: Text("delete"),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                    },
+                                    icon: Icon(Icons.delete_outline),
+                                  ),
+                                ),
+                               
+                              ],
+                            ),
+                          ),),)
+          
+          
+          
+          
+          ],),
+          ),
+          
+          
+          
+          
+          
+          ],),
           )
         ],
       ),
@@ -577,6 +651,7 @@ class Pod {
   final int comments;
   final int lis;
   final String id;
+   final String user;
  Pod ({
   required this.comments,
   required this.likes,
@@ -584,7 +659,7 @@ required this.lis,
 required this.picture,
 required this.name,
 required this.report,
-
+required this.user,
 required this.id,
  });
 

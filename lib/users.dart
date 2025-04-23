@@ -1,10 +1,9 @@
-import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:untitled6/home.dart';
 import 'package:intl/intl.dart';
-
+import 'package:untitled6/admin.dart';
 
 class Users extends StatefulWidget {
   const Users({super.key});
@@ -26,7 +25,7 @@ TextEditingController searchController = TextEditingController();
   late String te;
   List<USR> users = [];
   int currentPage = 1;
-  final int itemsPerPage = 1;
+  final int itemsPerPage = 20;
 
   @override
 void initState() {
@@ -35,6 +34,24 @@ void initState() {
   searchController.addListener(() {
     filterUsers();
   });
+}
+String formatNumber(dynamic value) {
+  // Convert value to int if it's not already
+  int numValue = 0;
+  if (value is int) {
+    numValue = value;
+  } else if (value is String) {
+    numValue = int.tryParse(value) ?? 0;
+  }
+  
+  // Format the number
+  if (numValue >= 1000000) {
+    return '${(numValue / 1000000).toStringAsFixed(1)}M';
+  } else if (numValue >= 1000) {
+    return '${(numValue / 1000).toStringAsFixed(1)}k';
+  } else {
+    return numValue.toString();
+  }
 }
 void filterUsers() {
   String searchTerm = searchController.text.toLowerCase();
@@ -179,79 +196,109 @@ Future deleteUserAccount(String userId) async {
     print("Error deleting user account: $e");
   }
 }
-  Future<void> fetchuser() async {
-    try {
-      final querySnapshot = await FirebaseFirestore.instance.collection('users').get();
+Future<void> fetchuser() async {
+  try {
+    final querySnapshot = await FirebaseFirestore.instance.collection('users').get();
 
-      final usersList = await Future.wait(querySnapshot.docs.map((doc) async {
-        final data = doc.data();
+    final usersList = await Future.wait(querySnapshot.docs.map((doc) async {
+      final data = doc.data();
 
-        // Handle Timestamp conversion
-        String formattedDate = '';
-        if (data['createdAt'] != null) {
-          if (data['createdAt'] is Timestamp) {
-            formattedDate = DateFormat('yyyy-MM-dd').format(data['createdAt'].toDate());
-          } else if (data['createdAt'] is String) {
-            formattedDate = data['createdAt'];
-          }
+      // Handle Timestamp conversion
+      String formattedDate = '';
+      if (data['createdAt'] != null) {
+        if (data['createdAt'] is Timestamp) {
+          formattedDate = DateFormat('yyyy-MM-dd').format(data['createdAt'].toDate());
+        } else if (data['createdAt'] is String) {
+          formattedDate = data['createdAt'];
         }
+      }
 
-        // Fetch channel data if userId exists
-        Map<String, dynamic>? channelData;
-        int followers = 0;
-        int following = 0;
-        String channelName = data['chanel']?.toString() ?? 'N/A';
-        String channelPhotoUrl = '';
-        
-        if (data['userId'] != null) {
-          try {
-            final channelDocs = await FirebaseFirestore.instance
-                .collection('channels')
-                .where('userId', isEqualTo: data['userId'])
-                .get();
-            
-            if (channelDocs.docs.isNotEmpty) {
-              channelData = channelDocs.docs.first.data();
-              followers = channelData['followers'] is int ? channelData['followers'] : 
-                        int.tryParse(channelData['followers']?.toString() ?? '0') ?? 0;
-              following = channelData['following'] is int ? channelData['following'] : 
-                        int.tryParse(channelData['following']?.toString() ?? '0') ?? 0;
-              channelName = channelData['name']?.toString() ?? channelName;
-              channelPhotoUrl = channelData['photoUrl']?.toString() ?? '';
+      // Fetch channel data if userId exists
+      Map<String, dynamic>? channelData;
+      int followers = 0;
+      int following = 0;
+      String channelName = data['chanel']?.toString() ?? 'N/A';
+      String channelPhotoUrl = '';
+      
+      // Variables for pods and likes totals
+      int totalPods = 0;
+      int totalLikes = 0;
+      
+      if (data['userId'] != null) {
+        try {
+          // Fetch channel data
+          final channelDocs = await FirebaseFirestore.instance
+              .collection('channels')
+              .where('userId', isEqualTo: data['userId'])
+              .get();
+          
+          if (channelDocs.docs.isNotEmpty) {
+            channelData = channelDocs.docs.first.data();
+            followers = channelData['followers'] is int ? channelData['followers'] : 
+                      int.tryParse(channelData['followers']?.toString() ?? '0') ?? 0;
+            following = channelData['following'] is int ? channelData['following'] : 
+                      int.tryParse(channelData['following']?.toString() ?? '0') ?? 0;
+            channelName = channelData['name']?.toString() ?? channelName;
+            channelPhotoUrl = channelData['photoUrl']?.toString() ?? '';
+          }
+
+          // Fetch pods data for this user
+          final podsSnapshot = await FirebaseFirestore.instance
+              .collection('podcasts')
+              .where('idUser', isEqualTo: data['userId'])
+              .get();
+          
+          // Calculate totals
+          totalPods = podsSnapshot.docs.length;
+          
+          // Sum up all likes from the pods
+          for (var podDoc in podsSnapshot.docs) {
+            var podData = podDoc.data();
+            // Handle likes value that could be string or int
+            var podLikes = podData['likes'];
+            if (podLikes != null) {
+              if (podLikes is int) {
+                totalLikes += podLikes;
+              } else {
+                totalLikes += int.tryParse(podLikes.toString()) ?? 0;
+              }
             }
-          } catch (e) {
-            exit(0);
           }
+          
+        } catch (e) {
+          print("Error fetching channel or pods data: $e");
         }
+      }
 
-        return USR(
-          firstName: data['firstName']?.toString() ?? 'N/A',
-          lastName: data['lastName']?.toString() ?? 'N/A',
-          email: data['email']?.toString() ?? 'N/A',
-          country: data['country']?.toString() ?? 'N/A',
-          signupd: formattedDate,
-          picture: data['photoUrl']?.toString() ?? '',
-          age: data['age']?.toString() ?? 'N/A',
-          chanel: channelName,
-          channelPhotoUrl: channelPhotoUrl,
-          followers: followers,
-          following: following,
-          likes: 0, // Set default value for likes
-          pods: 0,  // Set default value for pods
-          userId: data['userId']?.toString() ?? '',
-        );
-      }).toList());
+      return USR(
+        firstName: data['firstName']?.toString() ?? 'N/A',
+        lastName: data['lastName']?.toString() ?? 'N/A',
+        email: data['email']?.toString() ?? 'N/A',
+        country: data['country']?.toString() ?? 'N/A',
+        signupd: formattedDate,
+        picture: data['photoUrl']?.toString() ?? '',
+        age: data['age']?.toString() ?? 'N/A',
+        chanel: channelName,
+        channelPhotoUrl: channelPhotoUrl,
+        followers: followers,
+        following: following,
+        // Update these to use the calculated values
+        likes: totalLikes,
+        pods: totalPods,
+        userId: data['userId']?.toString() ?? '',
+      );
+    }).toList());
 
     setState(() {
       users = usersList;
       filteredUsers = usersList; // Initialize filteredUsers with all users
     });
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error loading users: ${e.toString()}")),
-      );
-    }
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error loading users: ${e.toString()}")),
+    );
   }
+}
 
 List<USR> get paginatedItems {
   int start = (currentPage - 1) * itemsPerPage;
@@ -289,8 +336,6 @@ int get totalPages => (filteredUsers.length / itemsPerPage).ceil();
     );
   }
 Future<void> showDeleteUserDialog(String userId) async {
-  final TextEditingController verificationController = TextEditingController();
-  String? errorMessage;
   bool deleteUser = true;
   bool deleteChannel = true;
   
@@ -326,25 +371,12 @@ Future<void> showDeleteUserDialog(String userId) async {
                     margin: EdgeInsets.only(top: screenHeight * 0.03),
                     width: screenWidth * 0.25,
                     child: Text(
-                      "Enter verification code and select what to delete",
+                      "select to  delete",
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: screenWidth * 0.01),
                     ),
                   ),
-                  Container(
-                    margin: EdgeInsets.only(top: screenHeight * 0.03),
-                    width: screenWidth * 0.25,
-                    child: TextField(
-                      controller: verificationController,
-                      decoration: InputDecoration(
-                        hintText: "Verification code",
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        errorText: errorMessage,
-                      ),
-                    ),
-                  ),
+                 
                   Container(
                     margin: EdgeInsets.only(top: screenHeight * 0.03),
                     width: screenWidth * 0.25,
@@ -418,7 +450,7 @@ Future<void> showDeleteUserDialog(String userId) async {
                           ),
                           child: MaterialButton(
                             onPressed: () async {
-                              if (verificationController.text.trim() == "slh3110") {
+                             
                                 Navigator.of(context).pop();
                                 // Call methods to delete user and/or channel based on checkbox values
                                 if (deleteUser) {
@@ -443,14 +475,8 @@ Future<void> showDeleteUserDialog(String userId) async {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(content: Text(message)),
                                 );
-                                
                                 // Refresh the user list
-                                fetchuser(); // You'll need to implement this method
-                              } else {
-                                setDialogState(() {
-                                  errorMessage = "Invalid verification code";
-                                });
-                              }
+                                fetchuser(); // You'll need to implement this metho
                             },
                             child: Text(
                               "Delete",
@@ -520,6 +546,7 @@ Future<void> deleteUserChannel(String userId) async {
       // Delete the podcast document from Firestore
       await doc.reference.delete();
     }
+    reportcha(userId);
     
 
     // Close loading indicator and show success message
@@ -529,6 +556,7 @@ Future<void> deleteUserChannel(String userId) async {
     );
   } catch (e) {
     // Close loading indicator and show error message
+    // ignore: use_build_context_synchronously
     Navigator.of(context, rootNavigator: true).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Error deleting channel: ${e.toString()}")),
@@ -547,7 +575,6 @@ Future<void> deletePodcast(String podcastId) async {
       },
     );
 
-    // Initialize Supabase client
     // Find the podcast document by ID
     final podcastDoc = await FirebaseFirestore.instance
         .collection('podcasts')
@@ -555,23 +582,32 @@ Future<void> deletePodcast(String podcastId) async {
         .get();
     
     if (podcastDoc.exists) {
+      // Store the user ID before deleting the podcast
+      String userId = podcastDoc.data()?['idUser'] ?? '';
+      
       // Delete the podcast document from Firestore
       await FirebaseFirestore.instance.collection('podcasts').doc(podcastId).delete();
       print('Podcast deleted from Firestore: $podcastId');
       
-      // Close loading indicator and show success message
+      // Close loading indicator
       Navigator.of(context, rootNavigator: true).pop();
+      
+      // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Podcast deleted successfully")),
       );
       
-      // Refresh pods list if needed
-      if (pods.any((pod) => pod.id == podcastId)) {
-        // Refresh the pods list for the current user
-        final currentUser = paginatedItems.isNotEmpty ? paginatedItems[0].userId : null;
-        if (currentUser != null) {
-          await fetchPods(currentUser);
-        }
+      // Refresh pods list for the current user
+      if (userId.isNotEmpty) {
+        await fetchPods(userId);
+        
+        // Important: Refresh the entire user list to update counts
+        await fetchuser();
+        
+        // Force a UI refresh
+        setState(() {
+          // The state update ensures the UI refreshes
+        });
       }
     } else {
       // Podcast not found
@@ -634,6 +670,43 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
     print("Error reporting user: $e");
   }
 }
+Future<void> reportcha(String userId ) async {
+  try {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const Center(child: CircularProgressIndicator());
+      },
+    );
+    
+    // Create a unique reportId
+    String reportId = FirebaseFirestore.instance.collection('reports').doc().id;
+    
+    // Predefined message
+   // Predefined message with corrected text
+String predefinedMessage = "you channel has been removed from our platform following community reports. This content violated our community guidelines, which are designed to ensure a safe and positive experience for all users. Thank you for helping maintain the quality and integrity of our community.";
+    
+    // Add report to Firestore
+    await FirebaseFirestore.instance.collection('reports').doc(reportId).set({
+      'reportId': reportId,
+      'userId': userId,
+      'message': predefinedMessage,
+      'reportedAt': FieldValue.serverTimestamp(),
+       // To identify that an admin made this report
+    });
+    
+    // Close loading indicator
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    // Show success message
+ 
+  } catch (e) {
+    // Close loading indicator
+  }
+}
+
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
@@ -953,7 +1026,7 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
                                                   child: ClipOval(
                                                     child: Image.network(
                                                       paginatedItems[index].picture,
-                                                      fit: BoxFit.fill,
+                                                      fit: BoxFit.cover,
                                                       errorBuilder: (context, error, stackTrace) {
                                                         // Fallback for image loading errors
                                                         return Icon(Icons.person, color: Colors.white);
@@ -989,7 +1062,11 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
                                                   child: Center(
                                                     child: TextButton(
                                                      onPressed: () async {
-  await fetchPods(paginatedItems[index].userId); // Wait for pods to load
+  await fetchPods(paginatedItems[index].userId);
+    await fetchuser(); // Refresh all user data
+  
+  // Force a UI refresh before showing dialog
+  setState(() {}); // Wait for pods to load
   showDialog(
     context: context,
     builder: (BuildContext context) {
@@ -1056,7 +1133,7 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
                                 Container(
                                   margin: EdgeInsets.only(top: screenHeight * 0.005),
                                   child: Text(
-                                    "${paginatedItems[index].following}",
+                                    formatNumber(paginatedItems[index].following),
                                     style: TextStyle(fontSize: screenHeight * 0.015)
                                   ),
                                 ),
@@ -1070,7 +1147,7 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
                                   Container(
                                     margin: EdgeInsets.only(top: screenHeight * 0.005),
                                     child: Text(
-                                      "${paginatedItems[index].followers}",
+                                    formatNumber(paginatedItems[index].followers),
                                       style: TextStyle(fontSize: screenHeight * 0.015)
                                     ),
                                   ),
@@ -1085,7 +1162,7 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
                                   Container(
                                     margin: EdgeInsets.only(top: screenHeight * 0.005),
                                     child: Text(
-                                      "${paginatedItems[index].likes}",
+                                      formatNumber(paginatedItems[index].likes),
                                       style: TextStyle(fontSize: screenHeight * 0.015)
                                     ),
                                   ),
@@ -1100,7 +1177,7 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
                                   Container(
                                     margin: EdgeInsets.only(top: screenHeight * 0.005),
                                     child: Text(
-                                      "${paginatedItems[index].pods}",
+                                     formatNumber(paginatedItems[index].pods),
                                       style: TextStyle(fontSize: screenHeight * 0.015)
                                     ),
                                   ),
@@ -1164,7 +1241,7 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
                                 height: screenHeight * 0.017,
                                 child: ListTile(
                                   leading: Icon(Icons.headphones_outlined, size: screenHeight * 0.015),
-                                  title: Text(pods[index].lis.toString(), style: TextStyle(fontSize: screenHeight * 0.015)),
+                                  title: Text(formatNumber(pods[index].lis), style: TextStyle(fontSize: screenHeight * 0.015)),
                                   dense: true, // Make ListTile more compact
                                 ),
                               ),
@@ -1173,7 +1250,7 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
                                 margin: EdgeInsets.only(top: screenHeight * 0.015),
                                 child: ListTile(
                                   leading: Icon(Icons.thumb_up_alt_outlined, size: screenHeight * 0.015),
-                                  title: Text(pods[index].likes.toString(), style: TextStyle(fontSize: screenHeight * 0.015)),
+                                  title: Text(formatNumber(pods[index].likes), style: TextStyle(fontSize: screenHeight * 0.015)),
                                   dense: true,
                                 ),
                               ),
@@ -1182,7 +1259,7 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
                                 margin: EdgeInsets.only(top: screenHeight * 0.015),
                                 child: ListTile(
                                   leading: Icon(Icons.comment_outlined, size: screenHeight * 0.015),
-                                  title: Text(pods[index].comments.toString(), style: TextStyle(fontSize: screenHeight * 0.015)),
+                                  title: Text(formatNumber(pods[index].comments), style: TextStyle(fontSize: screenHeight * 0.015)),
                                   dense: true,
                                 ),
                               ),
@@ -1192,8 +1269,14 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
                         Container(
                           margin: EdgeInsets.only(left: screenWidth * 0.008),
                           child: IconButton(
-                            onPressed: () { deletePodcast(pods[index].id);
-                              fetchPods(paginatedItems[index].userId);},
+                            onPressed: () async{ 
+                                    Navigator.of(context).pop(); // Close dialog
+              await deletePodcast(pods[index].id);
+              await fetchPods(paginatedItems[index].userId);
+              await fetchuser();
+              
+                              
+                              },
                             icon: Icon(Icons.delete_outline),
                           ),
                         ),
@@ -1342,6 +1425,7 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
       ),
     );
   }
+  
 }
 
 class USR {
@@ -1379,6 +1463,7 @@ final String userId;
     required this.pods, 
     required this.userId,
   });
+  
   
 }
 class Pod {

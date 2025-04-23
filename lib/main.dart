@@ -7,7 +7,7 @@ import 'package:untitled6/reported.dart';
 import 'package:untitled6/users.dart';
 import 'package:untitled6/admin.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'package:intl/intl.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   if (kIsWeb) {
@@ -56,3 +56,27 @@ class MyAppState extends State<MyApp> {
     );
   }
 }
+  String formatLikes(num likes) {
+    // Utiliser un pattern personnalisé avec exactement 2 décimales
+    final formatter = NumberFormat('#,##0.00', 'fr');
+    // Pour les nombres importants, appliquer une logique de compactage manuel
+    if (likes >= 1000000000000000) {
+      return '${formatter.format(likes / 1000000000000000).replaceAll('\u202f', '')}P';
+              
+              
+          
+    } else if (likes >= 1000000000000) {
+      return '${formatter.format(likes / 1000000000000).replaceAll('\u202f', '')}T';
+    } else if (likes >= 1000000000) {
+      return '${formatter.format(likes / 1000000000).replaceAll('\u202f', '')}G';
+    } else if (likes >= 1000000) {
+      return '${formatter.format(likes / 1000000).replaceAll('\u202f', '')}M';
+    } else if (likes >= 1000) {
+      return '${formatter.format(likes / 1000).replaceAll('\u202f', '')}k';
+    } else if (likes <= 999) {
+      final formatter1 = NumberFormat('#0', 'fr');
+      return formatter1.format(likes);
+    }
+
+    return formatter.format(likes).replaceAll('\u202f', '');
+  }
