@@ -281,6 +281,7 @@ class _ReportedState extends State<Reported> {
         'reportId': reportId,
         'userId': userId,
         'message': predefinedMessage,
+        'isviewed':false,
         'reportedAt': FieldValue.serverTimestamp(),
       });
       
@@ -415,6 +416,7 @@ class _ReportedState extends State<Reported> {
         'reportId': reportId,
         'userId': userId,
         'message': predefinedMessage,
+        'isviewed':false,
         'reportedAt': FieldValue.serverTimestamp(),
       });
       

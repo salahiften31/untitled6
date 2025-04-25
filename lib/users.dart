@@ -636,21 +636,74 @@ Future<void> deleteUserChannel(String userId) async {
         .get();
     
     for (var doc in podcastDocs.docs) {
+      final podcastId = doc.id;
+      
+      // Delete all references to this podcast in playinpod
+      final playInPodRefs = await FirebaseFirestore.instance
+          .collection('playinpod')
+          .where('podcastId', isEqualTo: podcastId)
+          .get();
+          
+      for (var playInPodDoc in playInPodRefs.docs) {
+        await playInPodDoc.reference.delete();
+        print('Deleted playinpod reference: ${playInPodDoc.id}');
+      }
+      
+      // Now delete the podcast
       await doc.reference.delete();
+      print('Deleted podcast: ${doc.id}');
     }
     
+    // Step 3: Find and delete all playlists by this user
     final playlisDocs = await FirebaseFirestore.instance
         .collection('playlist')
         .where('userId', isEqualTo: userId)
         .get();
     
     for (var doc in playlisDocs.docs) {
+      final playlistId = doc.id;
+      
+      // Delete all references to this playlist in playinpod
+      final playInPodRefs = await FirebaseFirestore.instance
+          .collection('playinpod')
+          .where('playlistId', isEqualTo: playlistId)
+          .get();
+          
+      for (var playInPodDoc in playInPodRefs.docs) {
+        await playInPodDoc.reference.delete();
+        print('Deleted playinpod reference: ${playInPodDoc.id}');
+      }
+      
+      // Now delete the playlist
       await doc.reference.delete();
+      print('Deleted playlist: ${doc.id}');
+    }
+    
+    // NEW CODE: Delete references in myplaylist for this user
+    final myPlaylistRefs = await FirebaseFirestore.instance
+        .collection('myplaylist')
+        .where('iduser', isEqualTo: userId)
+        .get();
+        
+    for (var doc in myPlaylistRefs.docs) {
+      await doc.reference.delete();
+      print('Deleted myplaylist reference: ${doc.id}');
+    }
+    
+    // NEW CODE: Delete references in mesplaylist for this user
+    final mesPlaylistRefs = await FirebaseFirestore.instance
+        .collection('mesplaylist')
+        .where('iduser', isEqualTo: userId)
+        .get();
+        
+    for (var doc in mesPlaylistRefs.docs) {
+      await doc.reference.delete();
+      print('Deleted mesplaylist reference: ${doc.id}');
     }
     
     reportcha(userId);
     
-    // NEW CODE: Update local state after deletion
+    // Update local state after deletion
     setState(() {
       // Find and update the user in both users and filteredUsers lists
       for (int i = 0; i < users.length; i++) {
@@ -714,6 +767,7 @@ Future<void> deleteUserChannel(String userId) async {
     print("Error deleting channel: $e");
   }
 }
+
 Future<void> deletePod(String id) async {
   try {
     // Show loading indicator
@@ -724,24 +778,89 @@ Future<void> deletePod(String id) async {
         return const Center(child: CircularProgressIndicator());
       },
     );
-
+    
     // First, query for the document with the matching id
     final querySnapshot = await FirebaseFirestore.instance
         .collection('podcasts')
         .where('id', isEqualTo: id)
         .get();
-    
+        
     // Check if we found a document with that id
     if (querySnapshot.docs.isNotEmpty) {
-      // Delete the document using its actual document ID
+      final podcastDocId = querySnapshot.docs.first.id;
+      final podcastData = querySnapshot.docs.first.data();
+      final userId = podcastData['idUser']; // Get the user ID
+      
+      // Before deleting the podcast, delete all references in playinpod
+      final playInPodRefs = await FirebaseFirestore.instance
+          .collection('playinpod')
+          .where('podcastId', isEqualTo: podcastDocId)
+          .get();
+          
+      for (var playInPodDoc in playInPodRefs.docs) {
+        // Get the playlist ID to potentially update its podcast count
+        final playlistId = playInPodDoc.data()['playlistId'];
+        
+        // Delete the playinpod reference
+        await playInPodDoc.reference.delete();
+        print('Deleted playinpod reference: ${playInPodDoc.id}');
+        
+        // Optionally: Update the playlist's podcast count
+        if (playlistId != null) {
+          final playlistDoc = await FirebaseFirestore.instance
+              .collection('playlist')
+              .doc(playlistId)
+              .get();
+              
+          if (playlistDoc.exists) {
+            final currentCount = playlistDoc.data()?['podcast'] ?? 0;
+            final newCount = currentCount > 0 ? currentCount - 1 : 0;
+            
+            await FirebaseFirestore.instance
+                .collection('playlist')
+                .doc(playlistId)
+                .update({'podcast': newCount});
+                
+            print('Updated playlist podcast count: $playlistId');
+          }
+        }
+      }
+      
+      // NEW CODE: Delete references in myplaylist related to this podcast
+      if (userId != null) {
+        final myPlaylistRefs = await FirebaseFirestore.instance
+            .collection('myplaylist')
+            .where('iduser', isEqualTo: userId)
+            .where('idpod', isEqualTo: podcastDocId)
+            .get();
+            
+        for (var doc in myPlaylistRefs.docs) {
+          await doc.reference.delete();
+          print('Deleted myplaylist reference: ${doc.id}');
+        }
+        
+        // NEW CODE: Delete references in mesplaylist related to this podcast
+        final mesPlaylistRefs = await FirebaseFirestore.instance
+            .collection('mesplaylist')
+            .where('iduser', isEqualTo: userId)
+            .where('idpod', isEqualTo: podcastDocId)
+            .get();
+            
+        for (var doc in mesPlaylistRefs.docs) {
+          await doc.reference.delete();
+          print('Deleted mesplaylist reference: ${doc.id}');
+        }
+      }
+      
+      // Now delete the actual podcast
       await FirebaseFirestore.instance
           .collection('podcasts')
-          .doc(querySnapshot.docs.first.id)
+          .doc(podcastDocId)
           .delete();
-      
+          
       // Close loading indicator
       Navigator.of(context, rootNavigator: true).pop();
-      
+          
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Podcast deleted successfully")),
@@ -749,7 +868,7 @@ Future<void> deletePod(String id) async {
     } else {
       // Close loading indicator
       Navigator.of(context, rootNavigator: true).pop();
-      
+          
       // Show not found message
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Podcast not found")),
@@ -758,7 +877,7 @@ Future<void> deletePod(String id) async {
   } catch (e) {
     // Close loading indicator
     Navigator.of(context, rootNavigator: true).pop();
-    
+      
     // Show error message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Error deleting podcast: $e")),
@@ -790,6 +909,7 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
       'userId': userId,
       'message': predefinedMessage,
       'reportedAt': FieldValue.serverTimestamp(),
+      'isviewed':false,
        // To identify that an admin made this report
     });
     
@@ -834,6 +954,7 @@ String predefinedMessage = "you channel has been removed from our platform follo
       'reportId': reportId,
       'userId': userId,
       'message': predefinedMessage,
+      'isviewed':false,
       'reportedAt': FieldValue.serverTimestamp(),
        // To identify that an admin made this report
     });
@@ -869,6 +990,7 @@ String predefinedMessage = "you channel has been removed from our platform follo
         'reportId': reportId,
         'userId': userId,
         'message': predefinedMessage,
+        'isviewed':false,
         'reportedAt': FieldValue.serverTimestamp(),
       });
       
