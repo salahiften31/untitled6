@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:untitled6/home.dart';
@@ -16,12 +18,113 @@ class _ReportedState extends State<Reported> {
   bool isHovered3 = false;
     bool isHovered4 = false;
     List<Pod> pods = [];
+        List<Report> reports = [
+];
     List <Chanel> chan =[];
-      @override
+// Create a StreamSubscription class variable
+StreamSubscription<QuerySnapshot>? _reportsSubscription;
+
+// Add this to your dispose method to clean up
+@override
+void dispose() {
+  _reportsSubscription?.cancel();
+  super.dispose();
+}
+
+// Replace fetchReports with this real-time version
+void setupReportsRealtime() {
+  // Cancel any existing subscription
+  _reportsSubscription?.cancel();
+  
+  // Listen to reports collection in real-time
+  _reportsSubscription = FirebaseFirestore.instance
+    .collection('reports')
+    .snapshots()
+    .listen((snapshot) async {
+      print("Got reports update with ${snapshot.docs.length} documents");
+      
+      // Create a temporary list to avoid multiple setState calls
+      List<Report> updatedReports = [];
+      
+      // Process each document
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        
+        // Only process if both fields exist
+        if (data.containsKey('text') && data.containsKey('userss')) {
+          String message = data['text'] ?? '';
+          String userId = data['userss'] ?? '';
+          String name = 'Unknown User';
+          
+          // Only proceed if we have valid values
+          if (message.isNotEmpty && userId.isNotEmpty) {
+            try {
+              // Get the user document directly using the ID
+              final userDoc = await FirebaseFirestore.instance
+                .collection('users')
+                .doc(userId)
+                .get();
+              
+              if (userDoc.exists) {
+                final userData = userDoc.data();
+                if (userData != null) {
+                  String firstName = userData['firstName'] ?? '';
+                  String lastName = userData['lastName'] ?? '';
+                  
+                  // Remove quotes if present
+                  if (firstName.startsWith('"') && firstName.endsWith('"')) {
+                    firstName = firstName.substring(1, firstName.length - 1);
+                  }
+                  if (lastName.startsWith('"') && lastName.endsWith('"')) {
+                    lastName = lastName.substring(1, lastName.length - 1);
+                  }
+                  
+                  name = '$firstName $lastName'.trim();
+                  
+                  // If name is still empty, use email as fallback
+                  if (name.isEmpty) {
+                    String email = userData['email'] ?? '';
+                    if (email.startsWith('"') && email.endsWith('"')) {
+                      email = email.substring(1, email.length - 1);
+                    }
+                    name = email.isNotEmpty ? email : 'Unknown User';
+                  }
+                }
+              }
+            } catch (e) {
+              print("Error fetching user data for ID $userId: $e");
+            }
+            
+            // Add to the temporary list
+            updatedReports.add(Report(
+              name: name,
+              message: message,
+            ));
+          }
+        }
+      }
+      
+      // Update state once with all the processed reports
+      if (mounted) {
+        setState(() {
+          reports = updatedReports;
+        });
+      }
+      
+      print("Real-time reports updated: ${reports.length}");
+    },
+    onError: (error) {
+      print("Error listening to reports: $error");
+    });
+}
+
+// Update your initState
+@override
 void initState() {
   super.initState();
-fetchPods();
-fetchChanel();
+  fetchPods();
+  fetchChanel();
+  setupReportsRealtime();  // Changed from fetchReports()
 }
     Future<void> fetchPods() async {
   try {
@@ -461,185 +564,231 @@ String predefinedMessage = "you channel has been removed from our platform follo
             ),
           ),
           // Main Content Area
-          SizedBox(child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [Container(
-              decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 4),
-              borderRadius: BorderRadius.all(Radius.circular(20))
-              
-              
-              ),
-              
-              
-              height: screenHeight*0.9,
-            margin: EdgeInsets.only(left: screenWidth*0.02),
-          width: screenWidth*0.3,
-          child: ListView(children: [Center(child: Text("Reported chanells",style: TextStyle(fontSize: screenHeight*0.025),),),
-          Column(children: List.generate(chan.length, (index)=> Container(
-            margin: EdgeInsets.only(top: screenHeight*0.02),
-            child: Card(
-              shape:RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(50),
-                         // Set your desired radius here
+          SizedBox(child: 
+             SingleChildScrollView(
+               child: Container(
+                 child: Column(
+                  
+                   children: [
+                     Row(
+                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                 children: [Container(
+                      decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 4),
+                      borderRadius: BorderRadius.all(Radius.circular(20))
+                      
+                      
                       ),
-              
-              child: Container(
-                        padding: EdgeInsets.only(right: screenWidth*0.01),
-            decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 3),
-            borderRadius:BorderRadius.circular(50) ),
-              height: screenHeight*0.08,
-               child: Row (children: [
-                 Container(
-          
-                  margin: EdgeInsets.only(left: screenWidth*0.02),
-                height: screenHeight*0.055,
-                width: screenWidth*0.03,
-                   child: ClipOval(
-                                          child: Image.network(chan[index].pic, fit: BoxFit.fill),
-                                        ),
-                 ), 
-                                      Container( margin: EdgeInsets.only(left: screenWidth*0.02),  child: Text(chan[index].name,style: TextStyle(fontSize: screenHeight*0.02),)),
-                                      Spacer(),
-                                      Container( margin: EdgeInsets.only(left: screenWidth*0.05),  child: IconButton(onPressed: (){
-                showDialog(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        return AlertDialog(
-                                          title: Text("Confirm delete"),
-                                          content:
-                                              Text("Are you sure you want to delete?"),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () {
-                                                Navigator.of(context).pop();
-                                              },
-                                              child: Text("Cancel"),
-                                            ),
-                                            TextButton(
-                                              onPressed: () {
-                                  reportcha(chan[index].uid);
-                                              //  deleteUserChannel(chan[index].uid);
-                                               Navigator.of(context).pop();
-                                               deleteUserChannel(chan[index].uid);
-                                               fetchChanel();
-                                              },
-                                              child: Text("delete"),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    );
-                                      }, icon: Icon(Icons.delete_outline)),)
-                ],)
-                
-              ),
-              
-                   
-                            ),
-          ),),)
-          
-          
-          
-          
-          ],),
-          
-          
-          
-          ),
-          Container(
-              decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 4),
-              borderRadius: BorderRadius.all(Radius.circular(20))
-              
-              ),
-              
-              
-              height: screenHeight*0.9,
-            margin: EdgeInsets.only(left: screenWidth*0.16),
-          width: screenWidth*0.3,
-          child: ListView(children: [Center(child: Text("Reported Podcasts",style: TextStyle(fontSize: screenHeight*0.025),),),
-          Column(children: List.generate(pods.length, (index)=> Container(
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.black12, width: 3),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            margin: EdgeInsets.only(top: screenHeight * 0.04),
-                            width: screenWidth * 0.28,
-                            height: screenHeight * 0.15,
-                            child: Row(
-                              children: [
-                                Container(
-                                  margin: EdgeInsets.only(left: screenWidth * 0.025),
-                                  height: screenHeight * 0.065,
-                                  width: screenWidth * 0.03,
-                                  child: ClipOval(
-                                    child: Image.network(pods[index].picture, fit: BoxFit.fill),
-                                  ),
-                                ),
-                                Container(
-                                 
-                                  margin: EdgeInsets.only(left: screenWidth * 0.015),
-                                  width: screenWidth * 0.06,
-                                  child: Text(
-                                    pods[index].name,
-                                    style: TextStyle(fontSize: screenWidth * 0.01),
-                                  ),
-                                ),  
-            
-                                     
-                                Container(
-            margin: EdgeInsets.only(left: screenWidth*0.1),
-                                  child: IconButton(
-                                    onPressed: () {
-                                            showDialog(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        return AlertDialog(
-                                          title: Text("Confirm delete"),
-                                          content:
-                                              Text("Are you sure you want to delete?"),
-                                          actions: [
-                                            TextButton(
-                                              onPressed: () {
-                                                Navigator.of(context).pop();
-                                              },
-                                              child: Text("Cancel"),
-                                            ),
-                                            TextButton(
-                                              onPressed: () {
-                                                
-                                          reportPod(pods[index].id,pods[index].name);
-                                          deletePod(pods[index].id);
-                                               Navigator.of(context).pop();
-                                               fetchPods();
-                                              },
-                                              child: Text("delete"),
-                                            ),
-                                          ],
-                                        );
-                                      },
-                                    );
-                                    },
-                                    icon: Icon(Icons.delete_outline),
-                                  ),
-                                ),
+                      
+                      
+                      height: screenHeight*0.9,
+                                 margin: EdgeInsets.only(left: screenWidth*0.02),
+                               width: screenWidth*0.3,
+                               child: ListView(children: [Center(child: Text("Reported chanells",style: TextStyle(fontSize: screenHeight*0.025),),),
+                               Column(children: List.generate(chan.length, (index)=> Container(
+                                 margin: EdgeInsets.only(top: screenHeight*0.02),
+                                 child: Card(
+                      shape:RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(50),
+                                 // Set your desired radius here
+                              ),
+                      
+                      child: Container(
+                                padding: EdgeInsets.only(right: screenWidth*0.01),
+                                 decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 3),
+                                 borderRadius:BorderRadius.circular(50) ),
+                      height: screenHeight*0.08,
+                       child: Row (children: [
+                         Container(
                                
-                              ],
-                            ),
-                          ),),)
-          
-          
-          
-          
-          ],),
+                          margin: EdgeInsets.only(left: screenWidth*0.02),
+                        height: screenHeight*0.055,
+                        width: screenWidth*0.03,
+                           child: ClipOval(
+                                                  child: Image.network(chan[index].pic, fit: BoxFit.fill),
+                                                ),
+                         ), 
+                                              Container( margin: EdgeInsets.only(left: screenWidth*0.02),  child: Text(chan[index].name,style: TextStyle(fontSize: screenHeight*0.02),)),
+                                              Spacer(),
+                                              Container( margin: EdgeInsets.only(left: screenWidth*0.05),  child: IconButton(onPressed: (){
+                        showDialog(
+                                              context: context,
+                                              builder: (BuildContext context) {
+                                                return AlertDialog(
+                                                  title: Text("Confirm delete"),
+                                                  content:
+                                                      Text("Are you sure you want to delete?"),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        Navigator.of(context).pop();
+                                                      },
+                                                      child: Text("Cancel"),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () {
+                                          reportcha(chan[index].uid);
+                                                      //  deleteUserChannel(chan[index].uid);
+                                                       Navigator.of(context).pop();
+                                                       deleteUserChannel(chan[index].uid);
+                                                       fetchChanel();
+                                                      },
+                                                      child: Text("delete"),
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            );
+                                              }, icon: Icon(Icons.delete_outline)),)
+                        ],)
+                        
+                      ),
+                      
+                           
+                                    ),
+                               ),),)
+                               
+                               
+                               
+                               
+                               ],),
+                               
+                               
+                               
+                               ),
+                               Container(
+                      decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 4),
+                      borderRadius: BorderRadius.all(Radius.circular(20))
+                      
+                      ),
+                      
+                      
+                      height: screenHeight*0.9,
+                                 margin: EdgeInsets.only(left: screenWidth*0.16),
+                               width: screenWidth*0.3,
+                               child: ListView(children: [Center(child: Text("Reported Podcasts",style: TextStyle(fontSize: screenHeight*0.025),),),
+                               Column(children: List.generate(pods.length, (index)=> Container(
+                                    decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.black12, width: 3),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    margin: EdgeInsets.only(top: screenHeight * 0.04),
+                                    width: screenWidth * 0.28,
+                                    height: screenHeight * 0.15,
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          margin: EdgeInsets.only(left: screenWidth * 0.025),
+                                          height: screenHeight * 0.065,
+                                          width: screenWidth * 0.03,
+                                          child: ClipOval(
+                                            child: Image.network(pods[index].picture, fit: BoxFit.fill),
+                                          ),
+                                        ),
+                                        Container(
+                                         
+                                          margin: EdgeInsets.only(left: screenWidth * 0.015),
+                                          width: screenWidth * 0.06,
+                                          child: Text(
+                                            pods[index].name,
+                                            style: TextStyle(fontSize: screenWidth * 0.01),
+                                          ),
+                                        ),  
+                                 
+                                             
+                                        Container(
+                                 margin: EdgeInsets.only(left: screenWidth*0.1),
+                                          child: IconButton(
+                                            onPressed: () {
+                                                    showDialog(
+                                              context: context,
+                                              builder: (BuildContext context) {
+                                                return AlertDialog(
+                                                  title: Text("Confirm delete"),
+                                                  content:
+                                                      Text("Are you sure you want to delete?"),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        Navigator.of(context).pop();
+                                                      },
+                                                      child: Text("Cancel"),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        
+                                                  reportPod(pods[index].id,pods[index].name);
+                                                  deletePod(pods[index].id);
+                                                       Navigator.of(context).pop();
+                                                       fetchPods();
+                                                      },
+                                                      child: Text("delete"),
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            );
+                                            },
+                                            icon: Icon(Icons.delete_outline),
+                                          ),
+                                        ),
+                                       
+                                      ],
+                                    ),
+                                  ),),)
+                               
+                               
+                               
+                               
+                               ],),
+                               ),
+                     
+                               
+                               ],),
+                               Container(height: screenHeight*0.02, ),
+                                                   Container(
+                                                    margin: EdgeInsets.only(left: screenWidth*0.02),
+                 width: screenWidth*0.77,
+                 height: screenHeight *0.6,
+                 
+                decoration: BoxDecoration(
+                                      border: Border.all(color: Colors.black12, width: 3),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                 child: ListView(
+children: [
+Container(margin: EdgeInsets.only(left: screenWidth*0.02 ),width: screenWidth*0.08,   child:  Text("Users Reports" ,style: TextStyle(fontSize: screenHeight*0.025) ),),
+ Column( children: List.generate(reports.length, (index)=> Container(
+child: Card(
+  child: ListTile(
+  leading: Icon(Icons.mail_outlined),
+  title: Text(reports[index].name),
+  subtitle: Text(reports[index].message),
+  
+  
+  
+  ),
+)
+
+
+
+
+ )
+ )
+ )
+
+],
+
+
+                 ),
+                           )
+                   ],
+                 ),
+               ),
+             ),
           ),
-          
-          
-          
-          
-          
-          ],),
-          )
+
         ],
+        
       ),
     );
   }
@@ -678,6 +827,23 @@ required this.name,
 required this.report,
 required this.pic,
 required this.uid,
+
+});
+
+
+
+}
+
+class Report {
+final String name;
+final String message;
+
+
+Report ({
+
+required this.name,
+
+required this.message,
 
 });
 

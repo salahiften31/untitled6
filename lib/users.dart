@@ -18,6 +18,7 @@ class Users extends StatefulWidget {
 class _UsersState extends State<Users> {
   List<Pod> pods = [];
   List<USR> filteredUsers = [];
+  
 TextEditingController searchController = TextEditingController();
 
   bool isHovered = false;
@@ -687,12 +688,17 @@ Future<void> deletePodcast(String podcastId) async {
     // Close loading indicator
     Navigator.of(context, rootNavigator: true).pop();
     
+    // Update the local pods list by removing the deleted podcast
+    setState(() {
+      pods = pods.where((pod) => pod.id != podcastId).toList();
+    });
+    
     // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Podcast deleted successfully")),
     );
     
-    // No need to manually refresh - the listener will handle it
+    // No need to manually refresh - we've updated the local state
   } catch (e) {
     // Error handling
     Navigator.of(context, rootNavigator: true).pop();
