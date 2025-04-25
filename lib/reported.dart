@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:untitled6/home.dart';
+import 'dart:math' as Math;
 
 class Reported extends StatefulWidget {
   const Reported({super.key});
@@ -31,7 +32,7 @@ void dispose() {
   super.dispose();
 }
 
-// Replace fetchReports with this real-time version
+// Improved real-time setup with debugging
 void setupReportsRealtime() {
   // Cancel any existing subscription
   _reportsSubscription?.cancel();
@@ -50,52 +51,102 @@ void setupReportsRealtime() {
       for (var doc in snapshot.docs) {
         final data = doc.data();
         
+        // Print out the entire document for debugging
+        print("Report document: ${doc.id} - $data");
+        
         // Only process if both fields exist
         if (data.containsKey('text') && data.containsKey('userss')) {
           String message = data['text'] ?? '';
           String userId = data['userss'] ?? '';
+          print("Processing report - message: $message, userss: $userId");
+          
           String name = 'Unknown User';
           
           // Only proceed if we have valid values
           if (message.isNotEmpty && userId.isNotEmpty) {
             try {
-              // Get the user document directly using the ID
+              // First approach: Try direct document lookup
+              print("Attempting to fetch user with ID: $userId");
               final userDoc = await FirebaseFirestore.instance
                 .collection('users')
                 .doc(userId)
                 .get();
               
+              print("User doc exists: ${userDoc.exists}");
+              
               if (userDoc.exists) {
                 final userData = userDoc.data();
+                print("Found user data: $userData");
                 if (userData != null) {
                   String firstName = userData['firstName'] ?? '';
                   String lastName = userData['lastName'] ?? '';
-                  
-                  // Remove quotes if present
-                  if (firstName.startsWith('"') && firstName.endsWith('"')) {
-                    firstName = firstName.substring(1, firstName.length - 1);
-                  }
-                  if (lastName.startsWith('"') && lastName.endsWith('"')) {
-                    lastName = lastName.substring(1, lastName.length - 1);
-                  }
-                  
                   name = '$firstName $lastName'.trim();
                   
-                  // If name is still empty, use email as fallback
                   if (name.isEmpty) {
                     String email = userData['email'] ?? '';
-                    if (email.startsWith('"') && email.endsWith('"')) {
-                      email = email.substring(1, email.length - 1);
-                    }
                     name = email.isNotEmpty ? email : 'Unknown User';
                   }
                 }
+              } else {
+                // Second approach: Try querying users collection
+                print("Document lookup failed. Trying query...");
+                final querySnapshot = await FirebaseFirestore.instance
+                  .collection('users')
+                  .get();
+                
+                print("Total users in collection: ${querySnapshot.docs.length}");
+                
+                // Print first few user IDs for debugging
+                for (int i = 0; i < Math.min(5, querySnapshot.docs.length); i++) {
+                  print("User ${i+1} ID: ${querySnapshot.docs[i].id}");
+                }
+                
+                // Try to find a match
+                bool foundUser = false;
+                for (var userDoc in querySnapshot.docs) {
+                  print("Checking user: ${userDoc.id}");
+                  if (userDoc.id == userId) {
+                    print("Found matching user by ID");
+                    foundUser = true;
+                    final userData = userDoc.data();
+                    String firstName = userData['firstName'] ?? '';
+                    String lastName = userData['lastName'] ?? '';
+                    name = '$firstName $lastName'.trim();
+                    
+                    if (name.isEmpty) {
+                      String email = userData['email'] ?? '';
+                      name = email.isNotEmpty ? email : 'Unknown User';
+                    }
+                    break;
+                  }
+                  
+                  // Also check if userId matches a userId field
+                  final userData = userDoc.data();
+                  if (userData['userId'] == userId) {
+                    print("Found matching user by userId field");
+                    foundUser = true;
+                    String firstName = userData['firstName'] ?? '';
+                    String lastName = userData['lastName'] ?? '';
+                    name = '$firstName $lastName'.trim();
+                    
+                    if (name.isEmpty) {
+                      String email = userData['email'] ?? '';
+                      name = email.isNotEmpty ? email : 'Unknown User';
+                    }
+                    break;
+                  }
+                }
+                
+                if (!foundUser) {
+                  print("Could not find user with ID: $userId");
+                }
               }
             } catch (e) {
-              print("Error fetching user data for ID $userId: $e");
+              print("Error fetching user data: $e");
             }
             
-            // Add to the temporary list
+            // Add to the temporary list regardless of whether we found a name
+            print("Adding report with name: $name, message: $message");
             updatedReports.add(Report(
               name: name,
               message: message,
