@@ -562,10 +562,12 @@ Future<void> showDeleteUserDialog(String userId) async {
 
   if (deleteUser) {
     await deleteUserAccount(userId);
+    await deleteUserChannel(userId);
   }
   if (deleteChannel) {
     await deleteUserChannel(userId);
   }
+  
   
   // Show success message
   String message = "";
