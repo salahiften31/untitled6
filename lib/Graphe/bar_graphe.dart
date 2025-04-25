@@ -2,6 +2,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:untitled6/Graphe/bar_data.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
+import 'dart:math' show pow;
 
 class Mybar_G extends StatefulWidget {
   const Mybar_G({super.key});
@@ -13,6 +15,8 @@ class Mybar_G extends StatefulWidget {
 class _Mybar_GState extends State<Mybar_G> {
   bool isLoading = true;
   late BarData bar_data;
+  // Add a stream subscription to manage the listener
+  StreamSubscription<QuerySnapshot>? _usersSubscription;
   
   @override
   void initState() {
@@ -27,18 +31,31 @@ class _Mybar_GState extends State<Mybar_G> {
       junamount: 0,
       julamount: 0,
     );
-    fetchMonthlyUserCounts();
+    bar_data.intlist(); // Initialize barlist with zeros
+    setupRealtimeUpdates();
   }
   
-  Future<void> fetchMonthlyUserCounts() async {
+  void setupRealtimeUpdates() {
+    final currentYear = DateTime.now().year;
+    
+    // Create a stream listener instead of a one-time fetch
+    _usersSubscription = FirebaseFirestore.instance
+        .collection('users')
+        .where('createdAt', isGreaterThanOrEqualTo: DateTime(currentYear, 1, 1))
+        .snapshots()
+        .listen((snapshot) {
+          updateChartData(snapshot);
+        }, onError: (error) {
+          print('Error in realtime updates: $error');
+          setState(() {
+            isLoading = false;
+          });
+        });
+  }
+  
+  void updateChartData(QuerySnapshot snapshot) {
     try {
       final currentYear = DateTime.now().year;
-      
-      // Get all users
-      final QuerySnapshot userSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .where('createdAt', isGreaterThanOrEqualTo: DateTime(currentYear, 1, 1))
-          .get();
       
       // Create counters for each month
       int janCount = 0;
@@ -50,7 +67,7 @@ class _Mybar_GState extends State<Mybar_G> {
       int julCount = 0;
       
       // Process each user document
-      for (var doc in userSnapshot.docs) {
+      for (var doc in snapshot.docs) {
         // Get the timestamp from the user document
         final data = doc.data() as Map<String, dynamic>;
         if (data.containsKey('createdAt')) {
@@ -75,26 +92,37 @@ class _Mybar_GState extends State<Mybar_G> {
       }
       
       // Update bar data with real values
-      setState(() {
-        bar_data = BarData(
-          janamount: janCount.toDouble(),
-          fivamount: febCount.toDouble(),
-          marnamount: marCount.toDouble(),
-          apramount: aprCount.toDouble(),
-          maiamount: mayCount.toDouble(),
-          junamount: junCount.toDouble(),
-          julamount: julCount.toDouble(),
-        );
-        bar_data.intlist(); // Initialize the barlist with new data
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          bar_data = BarData(
+            janamount: janCount.toDouble(),
+            fivamount: febCount.toDouble(),
+            marnamount: marCount.toDouble(),
+            apramount: aprCount.toDouble(),
+            maiamount: mayCount.toDouble(),
+            junamount: junCount.toDouble(),
+            julamount: julCount.toDouble(),
+          );
+          bar_data.intlist(); // Initialize the barlist with new data
+          isLoading = false;
+        });
+      }
       
     } catch (e) {
-      print('Error fetching monthly user data: $e');
-      setState(() {
-        isLoading = false;
-      });
+      print('Error processing user data: $e');
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
+  }
+
+  @override
+  void dispose() {
+    // Cancel the subscription when the widget is removed
+    _usersSubscription?.cancel();
+    super.dispose();
   }
 
   @override
@@ -104,27 +132,38 @@ class _Mybar_GState extends State<Mybar_G> {
     }
     
     // Find the maximum value for proper scaling
-    double maxValue = [
-      bar_data.janamount, 
-      bar_data.fivamount, 
-      bar_data.marnamount,
-      bar_data.apramount,
-      bar_data.maiamount,
-      bar_data.junamount,
-      bar_data.julamount
-    ].reduce((max, value) => value > max ? value : max);
-    
-    // Set the max Y to be slightly higher than the maximum value
-    double maxY = maxValue > 0 ? (maxValue * 1.2) : 100;
+ // Find the maximum value for proper scaling
+double maxValue = [
+  bar_data.janamount, 
+  bar_data.fivamount, 
+  bar_data.marnamount,
+  bar_data.apramount,
+  bar_data.maiamount,
+  bar_data.junamount,
+  bar_data.julamount
+].reduce((max, value) => value > max ? value : max);
+
+// Custom scaling logic:
+// If max value is 7, scale to 100 (7*10 rounded up)
+// If max value is 70, scale to 1000 (70*10 rounded up)
+double maxY;
+if (maxValue <= 0) {
+  maxY = 100; // Default if no data
+} else {
+  // Multiply by 10 and round to nearest power of 10
+  int multiplied = (maxValue * 10).ceil();
+  int digits = multiplied.toString().length;
+  maxY = pow(10, digits).toDouble();
+}
 
     return BarChart(
       BarChartData(
-        maxY: 100, // Dynamic max value
+        maxY: maxY, // Dynamic max value based on data
         minY: 0,
         gridData: FlGridData(
           horizontalInterval: maxY / 5, // 5 horizontal grid lines
           show: true,
-          drawHorizontalLine: false,
+          drawHorizontalLine: true,
           drawVerticalLine: false,
         ),
         borderData: FlBorderData(show: false),
@@ -164,6 +203,23 @@ class _Mybar_GState extends State<Mybar_G> {
             ),
           ),
         ),
+        barTouchData: BarTouchData(
+  enabled: true,
+  touchTooltipData: BarTouchTooltipData(
+    tooltipPadding: const EdgeInsets.all(8),
+    tooltipMargin: 8,
+    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+      return BarTooltipItem(
+        rod.toY.toInt().toString(), // the value to display
+        TextStyle(
+          color: const Color.fromARGB(255, 0, 0, 0), // 👈 Change this to any color you want
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+      );
+    },
+  ),
+),
         barGroups: bar_data.barlist.map(
           (data) => BarChartGroupData(
             x: bar_data.barlist.indexOf(data),

@@ -17,98 +17,71 @@ class _ReportedState extends State<Reported> {
   bool isHovered1 = false;
   bool isHovered2 = false;
   bool isHovered3 = false;
-    bool isHovered4 = false;
-    List<Pod> pods = [];
-        List<Report> reports = [
-];
-    List <Chanel> chan =[];
-// Create a StreamSubscription class variable
-StreamSubscription<QuerySnapshot>? _reportsSubscription;
-
-// Add this to your dispose method to clean up
-@override
-void dispose() {
-  _reportsSubscription?.cancel();
-  super.dispose();
-}
-
-// Improved real-time setup with debugging
-void setupReportsRealtime() {
-  // Cancel any existing subscription
-  _reportsSubscription?.cancel();
+  bool isHovered4 = false;
+  List<Pod> pods = [];
+  List<Report> reports = [];
+  List<Chanel> chan = [];
   
-  // Listen to reports collection in real-time
-  _reportsSubscription = FirebaseFirestore.instance
-    .collection('reports')
-    .snapshots()
-    .listen((snapshot) async {
-      print("Got reports update with ${snapshot.docs.length} documents");
-      
-      // Create a temporary list to avoid multiple setState calls
-      List<Report> updatedReports = [];
-      
-      // Process each document
-      for (var doc in snapshot.docs) {
-        final data = doc.data();
+  // Create StreamSubscription class variables for all realtime data
+  StreamSubscription<QuerySnapshot>? _reportsSubscription;
+  StreamSubscription<QuerySnapshot>? _podsSubscription;
+  StreamSubscription<QuerySnapshot>? _chanelSubscription;
+
+  // Add this to your dispose method to clean up all subscriptions
+  @override
+  void dispose() {
+    _reportsSubscription?.cancel();
+    _podsSubscription?.cancel();
+    _chanelSubscription?.cancel();
+    super.dispose();
+  }
+
+  // Improved real-time setup for reports
+  void setupReportsRealtime() {
+    // Cancel any existing subscription
+    _reportsSubscription?.cancel();
+    
+    // Listen to reports collection in real-time
+    _reportsSubscription = FirebaseFirestore.instance
+      .collection('reports')
+      .snapshots()
+      .listen((snapshot) async {
+        print("Got reports update with ${snapshot.docs.length} documents");
         
-        // Print out the entire document for debugging
-        print("Report document: ${doc.id} - $data");
+        // Create a temporary list to avoid multiple setState calls
+        List<Report> updatedReports = [];
         
-        // Only process if both fields exist
-        if (data.containsKey('text') && data.containsKey('userss')) {
-          String message = data['text'] ?? '';
-          String userId = data['userss'] ?? '';
-          print("Processing report - message: $message, userss: $userId");
+        // Process each document
+        for (var doc in snapshot.docs) {
+          final data = doc.data();
           
-          String name = 'Unknown User';
+          // Print out the entire document for debugging
+          print("Report document: ${doc.id} - $data");
           
-          // Only proceed if we have valid values
-          if (message.isNotEmpty && userId.isNotEmpty) {
-            try {
-              // First approach: Try direct document lookup
-              print("Attempting to fetch user with ID: $userId");
-              final userDoc = await FirebaseFirestore.instance
-                .collection('users')
-                .doc(userId)
-                .get();
-              
-              print("User doc exists: ${userDoc.exists}");
-              
-              if (userDoc.exists) {
-                final userData = userDoc.data();
-                print("Found user data: $userData");
-                if (userData != null) {
-                  String firstName = userData['firstName'] ?? '';
-                  String lastName = userData['lastName'] ?? '';
-                  name = '$firstName $lastName'.trim();
-                  
-                  if (name.isEmpty) {
-                    String email = userData['email'] ?? '';
-                    name = email.isNotEmpty ? email : 'Unknown User';
-                  }
-                }
-              } else {
-                // Second approach: Try querying users collection
-                print("Document lookup failed. Trying query...");
-                final querySnapshot = await FirebaseFirestore.instance
+          // Only process if both fields exist
+          if (data.containsKey('text') && data.containsKey('userss')) {
+            String message = data['text'] ?? '';
+            String userId = data['userss'] ?? '';
+            print("Processing report - message: $message, userss: $userId");
+            
+            String name = 'Unknown User';
+            
+            // Only proceed if we have valid values
+            if (message.isNotEmpty && userId.isNotEmpty) {
+              try {
+                // First approach: Try direct document lookup
+                print("Attempting to fetch user with ID: $userId");
+                final userDoc = await FirebaseFirestore.instance
                   .collection('users')
+                  .doc(userId)
                   .get();
                 
-                print("Total users in collection: ${querySnapshot.docs.length}");
+                print("User doc exists: ${userDoc.exists}");
                 
-                // Print first few user IDs for debugging
-                for (int i = 0; i < Math.min(5, querySnapshot.docs.length); i++) {
-                  print("User ${i+1} ID: ${querySnapshot.docs[i].id}");
-                }
-                
-                // Try to find a match
-                bool foundUser = false;
-                for (var userDoc in querySnapshot.docs) {
-                  print("Checking user: ${userDoc.id}");
-                  if (userDoc.id == userId) {
-                    print("Found matching user by ID");
-                    foundUser = true;
-                    final userData = userDoc.data();
+                if (userDoc.exists) {
+                  final userData = userDoc.data();
+                  print("Found user data: $userData");
+                  if (userData != null) {
                     String firstName = userData['firstName'] ?? '';
                     String lastName = userData['lastName'] ?? '';
                     name = '$firstName $lastName'.trim();
@@ -117,307 +90,343 @@ void setupReportsRealtime() {
                       String email = userData['email'] ?? '';
                       name = email.isNotEmpty ? email : 'Unknown User';
                     }
-                    break;
+                  }
+                } else {
+                  // Second approach: Try querying users collection
+                  print("Document lookup failed. Trying query...");
+                  final querySnapshot = await FirebaseFirestore.instance
+                    .collection('users')
+                    .get();
+                  
+                  print("Total users in collection: ${querySnapshot.docs.length}");
+                  
+                  // Print first few user IDs for debugging
+                  for (int i = 0; i < Math.min(5, querySnapshot.docs.length); i++) {
+                    print("User ${i+1} ID: ${querySnapshot.docs[i].id}");
                   }
                   
-                  // Also check if userId matches a userId field
-                  final userData = userDoc.data();
-                  if (userData['userId'] == userId) {
-                    print("Found matching user by userId field");
-                    foundUser = true;
-                    String firstName = userData['firstName'] ?? '';
-                    String lastName = userData['lastName'] ?? '';
-                    name = '$firstName $lastName'.trim();
-                    
-                    if (name.isEmpty) {
-                      String email = userData['email'] ?? '';
-                      name = email.isNotEmpty ? email : 'Unknown User';
+                  // Try to find a match
+                  bool foundUser = false;
+                  for (var userDoc in querySnapshot.docs) {
+                    print("Checking user: ${userDoc.id}");
+                    if (userDoc.id == userId) {
+                      print("Found matching user by ID");
+                      foundUser = true;
+                      final userData = userDoc.data();
+                      String firstName = userData['firstName'] ?? '';
+                      String lastName = userData['lastName'] ?? '';
+                      name = '$firstName $lastName'.trim();
+                      
+                      if (name.isEmpty) {
+                        String email = userData['email'] ?? '';
+                        name = email.isNotEmpty ? email : 'Unknown User';
+                      }
+                      break;
                     }
-                    break;
+                    
+                    // Also check if userId matches a userId field
+                    final userData = userDoc.data();
+                    if (userData['userId'] == userId) {
+                      print("Found matching user by userId field");
+                      foundUser = true;
+                      String firstName = userData['firstName'] ?? '';
+                      String lastName = userData['lastName'] ?? '';
+                      name = '$firstName $lastName'.trim();
+                      
+                      if (name.isEmpty) {
+                        String email = userData['email'] ?? '';
+                        name = email.isNotEmpty ? email : 'Unknown User';
+                      }
+                      break;
+                    }
+                  }
+                  
+                  if (!foundUser) {
+                    print("Could not find user with ID: $userId");
                   }
                 }
-                
-                if (!foundUser) {
-                  print("Could not find user with ID: $userId");
-                }
+              } catch (e) {
+                print("Error fetching user data: $e");
               }
-            } catch (e) {
-              print("Error fetching user data: $e");
+              
+              // Add to the temporary list regardless of whether we found a name
+              print("Adding report with name: $name, message: $message");
+              updatedReports.add(Report(
+                name: name,
+                message: message,
+              ));
             }
-            
-            // Add to the temporary list regardless of whether we found a name
-            print("Adding report with name: $name, message: $message");
-            updatedReports.add(Report(
-              name: name,
-              message: message,
-            ));
           }
         }
-      }
-      
-      // Update state once with all the processed reports
-      if (mounted) {
-        setState(() {
-          reports = updatedReports;
-        });
-      }
-      
-      print("Real-time reports updated: ${reports.length}");
-    },
-    onError: (error) {
-      print("Error listening to reports: $error");
-    });
-}
+        
+        // Update state once with all the processed reports
+        if (mounted) {
+          setState(() {
+            reports = updatedReports;
+          });
+        }
+        
+        print("Real-time reports updated: ${reports.length}");
+      },
+      onError: (error) {
+        print("Error listening to reports: $error");
+      });
+  }
 
-// Update your initState
-@override
-void initState() {
-  super.initState();
-  fetchPods();
-  fetchChanel();
-  setupReportsRealtime();  // Changed from fetchReports()
-}
-    Future<void> fetchPods() async {
-  try {
-  
-    final querySnapshot = await FirebaseFirestore.instance
+  // New real-time setup for pods
+  void setupPodsRealtime() {
+    // Cancel any existing subscription
+    _podsSubscription?.cancel();
+    
+    // Listen to podcasts collection in real-time
+    _podsSubscription = FirebaseFirestore.instance
       .collection('podcasts')
       .where('report', isGreaterThanOrEqualTo: 30)
-      .get();
-    
-    print("Found ${querySnapshot.docs.length} pods");
-    
-    final podsList = querySnapshot.docs.map((doc) {
-      final data = doc.data();
-      return Pod(
-        name: data['name'] ?? '',
-        picture: data['urlPhoto'] ?? '',
-        report: data['report'] ?? '0', 
-        likes: data['likes'] ?? '0', 
-        comments: data['comments'] ?? '0', 
-        lis: data['vue'] ?? '0', 
-       user : data['idUser'] ?? '0',
-  
-        id: data['id'] ?? '0', 
-      );
-    }).toList();
+      .snapshots()
+      .listen((snapshot) {
+        print("Got pods update with ${snapshot.docs.length} documents");
+        
+        final podsList = snapshot.docs.map((doc) {
+          final data = doc.data();
+          return Pod(
+            name: data['name'] ?? '',
+            picture: data['urlPhoto'] ?? '',
+            report: data['report'] ?? '0', 
+            likes: data['likes'] ?? '0', 
+            comments: data['comments'] ?? '0', 
+            lis: data['vue'] ?? '0', 
+            user: data['idUser'] ?? '0',
+            id: data['id'] ?? '0', 
+          );
+        }).toList();
 
-    setState(() {
-      pods = podsList;
-    });
-    
-    print("Pods set in state: ${pods.length}");
-  } catch (e) {
-    // ignore: avoid_print
-    print("Error fetching pods: $e");
+        if (mounted) {
+          setState(() {
+            pods = podsList;
+          });
+        }
+        
+        print("Real-time pods updated: ${pods.length}");
+      },
+      onError: (error) {
+        print("Error listening to pods: $error");
+      });
   }
-}
 
-    Future<void> fetchChanel() async {
-  try {
-  
-    final querySnapshot = await FirebaseFirestore.instance
+  // New real-time setup for channels
+  void setupChanelRealtime() {
+    // Cancel any existing subscription
+    _chanelSubscription?.cancel();
+    
+    // Listen to channels collection in real-time
+    _chanelSubscription = FirebaseFirestore.instance
       .collection('channels')
       .where('report', isGreaterThanOrEqualTo: 30)
-      .get();
-      
-    final chanList = querySnapshot.docs.map((doc) {
-      final data = doc.data();
-      return Chanel(
-        name: data['name'] ?? '',
-        pic: data['photoUrl'] ?? '',
-        report: data['report'] ?? '0', 
-        id: data['id'] ?? '0', 
-         uid: data['userId'] ?? '0', 
-      );
-    }).toList();
+      .snapshots()
+      .listen((snapshot) {
+        print("Got channels update with ${snapshot.docs.length} documents");
+        
+        final chanList = snapshot.docs.map((doc) {
+          final data = doc.data();
+          return Chanel(
+            name: data['name'] ?? '',
+            pic: data['photoUrl'] ?? '',
+            report: data['report'] ?? '0', 
+            id: data['id'] ?? '0', 
+            uid: data['userId'] ?? '0', 
+          );
+        }).toList();
 
-    setState(() {
-      chan = chanList;
-    });
-    
-  } catch (e) {
-    // ignore: avoid_print
-    print("Error fetching pods: $e");
-  }
-}
-Future<void> reportPod(String userId ,String podname) async {
-  try {
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Center(child: CircularProgressIndicator());
+        if (mounted) {
+          setState(() {
+            chan = chanList;
+          });
+        }
+        
+        print("Real-time channels updated: ${chan.length}");
       },
-    );
-    
-    // Create a unique reportId
-    String reportId = FirebaseFirestore.instance.collection('reports').doc().id;
-    
-    // Predefined message
-   // Predefined message with corrected text
-String predefinedMessage = "$podname has been removed from our platform following community reports. This content violated our community guidelines, which are designed to ensure a safe and positive experience for all users. Thank you for helping maintain the quality and integrity of our community.";
-    
-    // Add report to Firestore
-    await FirebaseFirestore.instance.collection('reports').doc(reportId).set({
-      'reportId': reportId,
-      'userId': userId,
-      'message': predefinedMessage,
-      'reportedAt': FieldValue.serverTimestamp(),
-       // To identify that an admin made this report
-    });
-    
-    // Close loading indicator
-    Navigator.of(context, rootNavigator: true).pop();
-    
-    // Show success message
- 
-  } catch (e) {
-    // Close loading indicator
-    Navigator.of(context, rootNavigator: true).pop();
-    
-    // Show error message
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error reporting user: ${e.toString()}")),
-    );
-    print("Error reporting user: $e");
-  }
-}
-Future<void> deleteUserChannel(String chId) async {
-  try {
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Center(child: CircularProgressIndicator());
-      },
-    );
-
-    // Initialize Supabase client    
-    // Step 1: Find and delete the channel document
-    final channelDocs = await FirebaseFirestore.instance
-        .collection('channels')
-        .where('userId', isEqualTo: chId)
-        .get();
-    
-    for (var doc in channelDocs.docs) {
-
-      await doc.reference.delete();
-      print('Channel deleted from Firestore: ${doc.id}');
-    }
-
-    // Step 2: Find and delete all podcasts by this user
-    final podcastDocs = await FirebaseFirestore.instance
-        .collection('podcasts')
-        .where('idUser', isEqualTo: chId)
-        .get();
-    
-    for (var doc in podcastDocs.docs) {
-     
-      // Delete the podcast document from Firestore
-      await doc.reference.delete();
-    }
-        final playlisDocs = await FirebaseFirestore.instance
-        .collection('podcasts')
-        .where('idUser', isEqualTo: chId)
-        .get();
-    
-    for (var doc in playlisDocs.docs) {
-     
-      // Delete the podcast document from Firestore
-      await doc.reference.delete();
-    }
-    
-
-    // Close loading indicator and show success message
-    Navigator.of(context, rootNavigator: true).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Channel and associated podcasts deleted successfully")),
-    );
-  } catch (e) {
-    // Close loading indicator and show error message
-    Navigator.of(context, rootNavigator: true).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error deleting channel: ${e.toString()}")),
-    );
-    print("Error deleting channel: $e");
-  }
-}
-Future<void> deletePod(String id) async {
-  try {
-    // First, query for the document with the matching adcode
-    final querySnapshot = await FirebaseFirestore.instance
-        .collection('podcasts')
-        .where('id', isEqualTo: id)
-        .get();
-    
-    // Check if we found a document with that id
-    if (querySnapshot.docs.isNotEmpty) {
-      // Delete the document using its actual document ID
-      await FirebaseFirestore.instance
-          .collection('podcasts')
-          .doc(querySnapshot.docs.first.id)
-          .delete();
-          
-      setState(() {
-        pods.removeWhere((pod) => pod.id == id);
+      onError: (error) {
+        print("Error listening to channels: $error");
       });
+  }
 
-      // ignore: use_build_context_synchronously
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("podcast deleted")),
+  // Update initState to use all real-time methods
+  @override
+  void initState() {
+    super.initState();
+    setupPodsRealtime();
+    setupChanelRealtime();
+    setupReportsRealtime();
+  }
+
+  Future<void> reportPod(String userId, String podname) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(child: CircularProgressIndicator());
+        },
       );
-    } else {
+      
+      // Create a unique reportId
+      String reportId = FirebaseFirestore.instance.collection('reports').doc().id;
+      
+      // Predefined message
+      String predefinedMessage = "$podname has been removed from our platform following community reports. This content violated our community guidelines, which are designed to ensure a safe and positive experience for all users. Thank you for helping maintain the quality and integrity of our community.";
+      
+      // Add report to Firestore
+      await FirebaseFirestore.instance.collection('reports').doc(reportId).set({
+        'reportId': reportId,
+        'userId': userId,
+        'message': predefinedMessage,
+        'reportedAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Close loading indicator
+      Navigator.of(context, rootNavigator: true).pop();
+      
+    } catch (e) {
+      // Close loading indicator
+      Navigator.of(context, rootNavigator: true).pop();
+      
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error reporting user: ${e.toString()}")),
+      );
+      print("Error reporting user: $e");
+    }
+  }
+
+  Future<void> deleteUserChannel(String chId) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(child: CircularProgressIndicator());
+        },
+      );
+
+      // Step 1: Find and delete the channel document
+      final channelDocs = await FirebaseFirestore.instance
+          .collection('channels')
+          .where('userId', isEqualTo: chId)
+          .get();
+      
+      for (var doc in channelDocs.docs) {
+        await doc.reference.delete();
+        print('Channel deleted from Firestore: ${doc.id}');
+      }
+
+      // Step 2: Find and delete all podcasts by this user
+      final podcastDocs = await FirebaseFirestore.instance
+          .collection('podcasts')
+          .where('idUser', isEqualTo: chId)
+          .get();
+      
+      for (var doc in podcastDocs.docs) {
+        // Delete the podcast document from Firestore
+        await doc.reference.delete();
+      }
+      
+      final playlisDocs = await FirebaseFirestore.instance
+          .collection('podcasts')
+          .where('idUser', isEqualTo: chId)
+          .get();
+      
+      for (var doc in playlisDocs.docs) {
+        // Delete the podcast document from Firestore
+        await doc.reference.delete();
+      }
+      
+      // Close loading indicator and show success message
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Channel and associated podcasts deleted successfully")),
+      );
+    } catch (e) {
+      // Close loading indicator and show error message
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error deleting channel: ${e.toString()}")),
+      );
+      print("Error deleting channel: $e");
+    }
+  }
+
+  Future<void> deletePod(String id) async {
+    try {
+      // First, query for the document with the matching adcode
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('podcasts')
+          .where('id', isEqualTo: id)
+          .get();
+      
+      // Check if we found a document with that id
+      if (querySnapshot.docs.isNotEmpty) {
+        // Delete the document using its actual document ID
+        await FirebaseFirestore.instance
+            .collection('podcasts')
+            .doc(querySnapshot.docs.first.id)
+            .delete();
+            
+        // We don't need to update state manually since real-time listener will handle it
+        
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Podcast deleted")),
+        );
+      } else {
+        // ignore: use_build_context_synchronously
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Podcast not found")),
+        );
+      }
+    } catch (e) {
       // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("podcast not found")),
+        SnackBar(content: Text("Error deleting podcast: $e")),
       );
     }
-  } catch (e) {
-    // ignore: use_build_context_synchronously
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error deleting podcast: $e")),
-    );
   }
-}
-Future<void> reportcha(String userId ) async {
-  try {
-    // Show loading indicator
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Center(child: CircularProgressIndicator());
-      },
-    );
-    
-    // Create a unique reportId
-    String reportId = FirebaseFirestore.instance.collection('reports').doc().id;
-    
-    // Predefined message
-   // Predefined message with corrected text
-String predefinedMessage = "you channel has been removed from our platform following community reports. This content violated our community guidelines, which are designed to ensure a safe and positive experience for all users. Thank you for helping maintain the quality and integrity of our community.";
-    
-    // Add report to Firestore
-    await FirebaseFirestore.instance.collection('reports').doc(reportId).set({
-      'reportId': reportId,
-      'userId': userId,
-      'message': predefinedMessage,
-      'reportedAt': FieldValue.serverTimestamp(),
-       // To identify that an admin made this report
-    });
-    
-    // Close loading indicator
-    Navigator.of(context, rootNavigator: true).pop();
-    
-    // Show success message
- 
-  } catch (e) {
-    // Close loading indicator
+
+  Future<void> reportcha(String userId) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(child: CircularProgressIndicator());
+        },
+      );
+      
+      // Create a unique reportId
+      String reportId = FirebaseFirestore.instance.collection('reports').doc().id;
+      
+      // Predefined message
+      String predefinedMessage = "Your channel has been removed from our platform following community reports. This content violated our community guidelines, which are designed to ensure a safe and positive experience for all users. Thank you for helping maintain the quality and integrity of our community.";
+      
+      // Add report to Firestore
+      await FirebaseFirestore.instance.collection('reports').doc(reportId).set({
+        'reportId': reportId,
+        'userId': userId,
+        'message': predefinedMessage,
+        'reportedAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Close loading indicator
+      Navigator.of(context, rootNavigator: true).pop();
+      
+    } catch (e) {
+      // Close loading indicator
+      Navigator.of(context, rootNavigator: true).pop();
+    }
   }
-}
+
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
@@ -534,7 +543,7 @@ String predefinedMessage = "you channel has been removed from our platform follo
                     ),
                   ),
                 ),
-                 Container(
+                Container(
                   margin: EdgeInsets.only(top: screenHeight * 0.05),
                   child: MouseRegion(
                     onEnter: (_) => setState(() => isHovered4 = true),
@@ -542,7 +551,7 @@ String predefinedMessage = "you channel has been removed from our platform follo
                     child: AnimatedContainer(
                       duration: Duration(milliseconds: 300),
                       decoration: BoxDecoration(
-                        color:  Colors.blue[700] ,
+                        color: Colors.blue[700],
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: MaterialButton(
@@ -550,8 +559,8 @@ String predefinedMessage = "you channel has been removed from our platform follo
                           Navigator.of(context).pushReplacementNamed("rep");
                         },
                         child: ListTile(
-                          leading: Icon(Icons.flag,size: screenHeight*0.022,),
-                          title: Text("Reported",style: TextStyle(fontSize: screenWidth *0.01),),
+                          leading: Icon(Icons.flag, size: screenHeight * 0.022),
+                          title: Text("Reported", style: TextStyle(fontSize: screenWidth * 0.01)),
                         ),
                       ),
                     ),
@@ -615,109 +624,127 @@ String predefinedMessage = "you channel has been removed from our platform follo
             ),
           ),
           // Main Content Area
-          SizedBox(child: 
-             SingleChildScrollView(
-               child: Container(
-                 child: Column(
-                  
-                   children: [
-                     Row(
-                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                 children: [Container(
-                      decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 4),
-                      borderRadius: BorderRadius.all(Radius.circular(20))
-                      
-                      
-                      ),
-                      
-                      
-                      height: screenHeight*0.9,
-                                 margin: EdgeInsets.only(left: screenWidth*0.02),
-                               width: screenWidth*0.3,
-                               child: ListView(children: [Center(child: Text("Reported chanells",style: TextStyle(fontSize: screenHeight*0.025),),),
-                               Column(children: List.generate(chan.length, (index)=> Container(
-                                 margin: EdgeInsets.only(top: screenHeight*0.02),
-                                 child: Card(
-                      shape:RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(50),
-                                 // Set your desired radius here
+          SizedBox(
+            child: SingleChildScrollView(
+              child: Container(
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.black12, width: 4),
+                            borderRadius: BorderRadius.all(Radius.circular(20))
+                          ),
+                          height: screenHeight * 0.9,
+                          margin: EdgeInsets.only(left: screenWidth * 0.02),
+                          width: screenWidth * 0.3,
+                          child: ListView(
+                            children: [
+                              Center(
+                                child: Text(
+                                  "Reported Channels",
+                                  style: TextStyle(fontSize: screenHeight * 0.025),
+                                ),
                               ),
-                      
-                      child: Container(
-                                padding: EdgeInsets.only(right: screenWidth*0.01),
-                                 decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 3),
-                                 borderRadius:BorderRadius.circular(50) ),
-                      height: screenHeight*0.08,
-                       child: Row (children: [
-                         Container(
-                               
-                          margin: EdgeInsets.only(left: screenWidth*0.02),
-                        height: screenHeight*0.055,
-                        width: screenWidth*0.03,
-                           child: ClipOval(
-                                                  child: Image.network(chan[index].pic, fit: BoxFit.fill),
-                                                ),
-                         ), 
-                                              Container( margin: EdgeInsets.only(left: screenWidth*0.02),  child: Text(chan[index].name,style: TextStyle(fontSize: screenHeight*0.02),)),
-                                              Spacer(),
-                                              Container( margin: EdgeInsets.only(left: screenWidth*0.05),  child: IconButton(onPressed: (){
-                        showDialog(
-                                              context: context,
-                                              builder: (BuildContext context) {
-                                                return AlertDialog(
-                                                  title: Text("Confirm delete"),
-                                                  content:
-                                                      Text("Are you sure you want to delete?"),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () {
-                                                        Navigator.of(context).pop();
-                                                      },
-                                                      child: Text("Cancel"),
-                                                    ),
-                                                    TextButton(
-                                                      onPressed: () {
-                                          reportcha(chan[index].uid);
-                                                      //  deleteUserChannel(chan[index].uid);
-                                                       Navigator.of(context).pop();
-                                                       deleteUserChannel(chan[index].uid);
-                                                       fetchChanel();
-                                                      },
-                                                      child: Text("delete"),
-                                                    ),
-                                                  ],
-                                                );
-                                              },
-                                            );
-                                              }, icon: Icon(Icons.delete_outline)),)
-                        ],)
-                        
-                      ),
-                      
-                           
+                              Column(
+                                children: List.generate(
+                                  chan.length,
+                                  (index) => Container(
+                                    margin: EdgeInsets.only(top: screenHeight * 0.02),
+                                    child: Card(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(50),
+                                      ),
+                                      child: Container(
+                                        padding: EdgeInsets.only(right: screenWidth * 0.01),
+                                        decoration: BoxDecoration(
+                                          border: Border.all(color: Colors.black12, width: 3),
+                                          borderRadius: BorderRadius.circular(50)
+                                        ),
+                                        height: screenHeight * 0.08,
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              margin: EdgeInsets.only(left: screenWidth * 0.02),
+                                              height: screenHeight * 0.055,
+                                              width: screenWidth * 0.03,
+                                              child: ClipOval(
+                                                child: Image.network(chan[index].pic, fit: BoxFit.fill),
+                                              ),
+                                            ),
+                                            Container(
+                                              margin: EdgeInsets.only(left: screenWidth * 0.02),
+                                              child: Text(
+                                                chan[index].name,
+                                                style: TextStyle(fontSize: screenHeight * 0.02),
+                                              )
+                                            ),
+                                            Spacer(),
+                                            Container(
+                                              margin: EdgeInsets.only(left: screenWidth * 0.05),
+                                              child: IconButton(
+                                                onPressed: () {
+                                                  showDialog(
+                                                    context: context,
+                                                    builder: (BuildContext context) {
+                                                      return AlertDialog(
+                                                        title: Text("Confirm delete"),
+                                                        content: Text("Are you sure you want to delete?"),
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed: () {
+                                                              Navigator.of(context).pop();
+                                                            },
+                                                            child: Text("Cancel"),
+                                                          ),
+                                                          TextButton(
+                                                            onPressed: () {
+                                                              reportcha(chan[index].uid);
+                                                              Navigator.of(context).pop();
+                                                              deleteUserChannel(chan[index].uid);
+                                                            },
+                                                            child: Text("Delete"),
+                                                          ),
+                                                        ],
+                                                      );
+                                                    },
+                                                  );
+                                                },
+                                                icon: Icon(Icons.delete_outline)
+                                              ),
+                                            )
+                                          ],
+                                        ),
+                                      ),
                                     ),
-                               ),),)
-                               
-                               
-                               
-                               
-                               ],),
-                               
-                               
-                               
-                               ),
-                               Container(
-                      decoration: BoxDecoration(border: Border.all(color: Colors.black12,width: 4),
-                      borderRadius: BorderRadius.all(Radius.circular(20))
-                      
-                      ),
-                      
-                      
-                      height: screenHeight*0.9,
-                                 margin: EdgeInsets.only(left: screenWidth*0.16),
-                               width: screenWidth*0.3,
-                               child: ListView(children: [Center(child: Text("Reported Podcasts",style: TextStyle(fontSize: screenHeight*0.025),),),
-                               Column(children: List.generate(pods.length, (index)=> Container(
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.black12, width: 4),
+                            borderRadius: BorderRadius.all(Radius.circular(20))
+                          ),
+                          height: screenHeight * 0.9,
+                          margin: EdgeInsets.only(left: screenWidth * 0.16),
+                          width: screenWidth * 0.3,
+                          child: ListView(
+                            children: [
+                              Center(
+                                child: Text(
+                                  "Reported Podcasts",
+                                  style: TextStyle(fontSize: screenHeight * 0.025),
+                                ),
+                              ),
+                              Column(
+                                children: List.generate(
+                                  pods.length,
+                                  (index) => Container(
                                     decoration: BoxDecoration(
                                       border: Border.all(color: Colors.black12, width: 3),
                                       borderRadius: BorderRadius.circular(20),
@@ -736,142 +763,132 @@ String predefinedMessage = "you channel has been removed from our platform follo
                                           ),
                                         ),
                                         Container(
-                                         
                                           margin: EdgeInsets.only(left: screenWidth * 0.015),
                                           width: screenWidth * 0.06,
                                           child: Text(
                                             pods[index].name,
                                             style: TextStyle(fontSize: screenWidth * 0.01),
                                           ),
-                                        ),  
-                                 
-                                             
+                                        ),
                                         Container(
-                                 margin: EdgeInsets.only(left: screenWidth*0.1),
+                                          margin: EdgeInsets.only(left: screenWidth * 0.1),
                                           child: IconButton(
                                             onPressed: () {
-                                                    showDialog(
-                                              context: context,
-                                              builder: (BuildContext context) {
-                                                return AlertDialog(
-                                                  title: Text("Confirm delete"),
-                                                  content:
-                                                      Text("Are you sure you want to delete?"),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () {
-                                                        Navigator.of(context).pop();
-                                                      },
-                                                      child: Text("Cancel"),
-                                                    ),
-                                                    TextButton(
-                                                      onPressed: () {
-                                                        
-                                                  reportPod(pods[index].id,pods[index].name);
-                                                  deletePod(pods[index].id);
-                                                       Navigator.of(context).pop();
-                                                       fetchPods();
-                                                      },
-                                                      child: Text("delete"),
-                                                    ),
-                                                  ],
-                                                );
-                                              },
-                                            );
+                                              showDialog(
+                                                context: context,
+                                                builder: (BuildContext context) {
+                                                  return AlertDialog(
+                                                    title: Text("Confirm delete"),
+                                                    content: Text("Are you sure you want to delete?"),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () {
+                                                          Navigator.of(context).pop();
+                                                        },
+                                                        child: Text("Cancel"),
+                                                      ),
+                                                      TextButton(
+                                                        onPressed: () {
+                                                          reportPod(pods[index].id, pods[index].name);
+                                                          deletePod(pods[index].id);
+                                                          Navigator.of(context).pop();
+                                                        },
+                                                        child: Text("Delete"),
+                                                      ),
+                                                    ],
+                                                  );
+                                                },
+                                              );
                                             },
                                             icon: Icon(Icons.delete_outline),
                                           ),
                                         ),
-                                       
                                       ],
                                     ),
-                                  ),),)
-                               
-                               
-                               
-                               
-                               ],),
-                               ),
-                     
-                               
-                               ],),
-                               Container(height: screenHeight*0.02, ),
-                                                   Container(
-                                                    margin: EdgeInsets.only(left: screenWidth*0.02),
-                 width: screenWidth*0.77,
-                 height: screenHeight *0.6,
-                 
-                decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.black12, width: 3),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                 child: ListView(
-children: [
-Container(margin: EdgeInsets.only(left: screenWidth*0.02 ),width: screenWidth*0.08,   child:  Text("Users Reports" ,style: TextStyle(fontSize: screenHeight*0.025) ),),
- Column( children: List.generate(reports.length, (index)=> Container(
-child: Card(
-  child: ListTile(
-  leading: Icon(Icons.mail_outlined),
-  title: Text(reports[index].name),
-  subtitle: Text(reports[index].message),
-  
-  
-  
-  ),
-)
-
-
-
-
- )
- )
- )
-
-],
-
-
-                 ),
-                           )
-                   ],
-                 ),
-               ),
-             ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    Container(height: screenHeight * 0.02),
+                    Container(
+                      margin: EdgeInsets.only(left: screenWidth * 0.02),
+                      width: screenWidth * 0.77,
+                      height: screenHeight * 0.6,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.black12, width: 3),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: ListView(
+                        children: [
+                          Container(
+                            margin: EdgeInsets.only(left: screenWidth * 0.02),
+                            width: screenWidth * 0.08,
+                            child: Text(
+                              "Users Reports",
+                              style: TextStyle(fontSize: screenHeight * 0.025),
+                            ),
+                          ),
+                          Column(
+                            children: List.generate(
+                              reports.length,
+                              (index) => Container(
+                                child: Card(
+                                  child: ListTile(
+                                    leading: Icon(Icons.mail_outlined),
+                                    title: Text(reports[index].name),
+                                    subtitle: Text(reports[index].message),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-
         ],
-        
       ),
     );
   }
 }
+
 class Pod {
- final String picture;
- final String name;
- final int report;
- final int likes;
+  final String picture;
+  final String name;
+  final int report;
+  final int likes;
   final int comments;
   final int lis;
   final String id;
-   final String user;
- Pod ({
-  required this.comments,
-  required this.likes,
-required this.lis,
-required this.picture,
-required this.name,
-required this.report,
-required this.user,
-required this.id,
- });
-
-
+  final String user;
+  
+  Pod({
+    required this.comments,
+    required this.likes,
+    required this.lis,
+    required this.picture,
+    required this.name,
+    required this.report,
+    required this.user,
+    required this.id,
+  });
 }
+
 class Chanel {
-final String name;
-final String id;
-final String pic;
-final int report ;
-final String uid ;
+  final String name;
+  final String id;
+  final String pic;
+  final int report;
+  final String uid;
+
 Chanel ({
 required this.id,
 required this.name,

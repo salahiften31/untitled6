@@ -555,35 +555,33 @@ Future<void> showDeleteUserDialog(String userId) async {
                             color: Color(0xFF4b68ff),
                           ),
                           child: MaterialButton(
-                            onPressed: () async {
-                             
-                                Navigator.of(context).pop();
-                                // Call methods to delete user and/or channel based on checkbox values
-                                if (deleteUser) {
-                                //   await deleteUserAccount(userId);
-                                }
-                                if (deleteChannel) {
-                                  // await deleteUserChannel(channelId);
-                                }
-                                
-                                // Show success message
-                                String message = "";
-                                if (deleteUser && deleteChannel) {
-                                  deleteUserAccount( userId);
-                                    deleteUserChannel(userId );
-                                  message = "User and channel deleted successfully";
-                                }  else if (deleteChannel) {
-                                 deleteUserChannel(userId );
-                                  message = "chanel deleted successfully";
-                                
-                                }
-                                
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(message)),
-                                );
-                                // Refresh the user list
-                                _setupRealTimeListeners(); // You'll need to implement this metho
-                            },
+                        onPressed: () async {
+  Navigator.of(context).pop();
+  
+  // Store user data before deletion to reference it after
+
+  if (deleteUser) {
+    await deleteUserAccount(userId);
+  }
+  if (deleteChannel) {
+    await deleteUserChannel(userId);
+  }
+  
+  // Show success message
+  String message = "";
+  if (deleteUser && deleteChannel) {
+    message = "User and channel deleted successfully";
+  } else if (deleteChannel) {
+    message = "Channel deleted successfully";
+  }
+  
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(content: Text(message)),
+  );
+  
+  // No need to call _setupRealTimeListeners() here
+  // The state is already updated in the deletion methods
+},
                             child: Text(
                               "Delete",
                               style: TextStyle(
@@ -618,7 +616,6 @@ Future<void> deleteUserChannel(String userId) async {
       },
     );
 
-    // Initialize Supabase client    
     // Step 1: Find and delete the channel document
     final channelDocs = await FirebaseFirestore.instance
         .collection('channels')
@@ -626,7 +623,6 @@ Future<void> deleteUserChannel(String userId) async {
         .get();
     
     for (var doc in channelDocs.docs) {
-
       await doc.reference.delete();
       print('Channel deleted from Firestore: ${doc.id}');
     }
@@ -638,22 +634,69 @@ Future<void> deleteUserChannel(String userId) async {
         .get();
     
     for (var doc in podcastDocs.docs) {
-     
-      // Delete the podcast document from Firestore
       await doc.reference.delete();
     }
-        final playlisDocs = await FirebaseFirestore.instance
-        .collection('podcasts')
-        .where('idUser', isEqualTo: userId)
+    
+    final playlisDocs = await FirebaseFirestore.instance
+        .collection('playlist')
+        .where('userId', isEqualTo: userId)
         .get();
     
     for (var doc in playlisDocs.docs) {
-     
-      // Delete the podcast document from Firestore
       await doc.reference.delete();
     }
+    
     reportcha(userId);
     
+    // NEW CODE: Update local state after deletion
+    setState(() {
+      // Find and update the user in both users and filteredUsers lists
+      for (int i = 0; i < users.length; i++) {
+        if (users[i].userId == userId) {
+          // Create a new user object with updated channel info
+          users[i] = USR(
+            firstName: users[i].firstName,
+            lastName: users[i].lastName,
+            email: users[i].email,
+            country: users[i].country,
+            signupd: users[i].signupd,
+            picture: users[i].picture,
+            age: users[i].age,
+            chanel: 'N/A',  // Reset channel name
+            channelPhotoUrl: '',  // Reset channel photo
+            followers: 0,  // Reset followers
+            following: users[i].following,
+            likes: 0,  // Reset likes from channel
+            pods: 0,  // Reset pods count
+            userId: users[i].userId,
+          );
+          break;
+        }
+      }
+      
+      // Also update the filtered users list
+      for (int i = 0; i < filteredUsers.length; i++) {
+        if (filteredUsers[i].userId == userId) {
+          filteredUsers[i] = USR(
+            firstName: filteredUsers[i].firstName,
+            lastName: filteredUsers[i].lastName,
+            email: filteredUsers[i].email,
+            country: filteredUsers[i].country,
+            signupd: filteredUsers[i].signupd,
+            picture: filteredUsers[i].picture,
+            age: filteredUsers[i].age,
+            chanel: 'N/A',  // Reset channel name
+            channelPhotoUrl: '',  // Reset channel photo
+            followers: 0,  // Reset followers
+            following: filteredUsers[i].following,
+            likes: 0,  // Reset likes from channel
+            pods: 0,  // Reset pods count
+            userId: filteredUsers[i].userId,
+          );
+          break;
+        }
+      }
+    });
 
     // Close loading indicator and show success message
     Navigator.of(context, rootNavigator: true).pop();
@@ -662,7 +705,6 @@ Future<void> deleteUserChannel(String userId) async {
     );
   } catch (e) {
     // Close loading indicator and show error message
-    // ignore: use_build_context_synchronously
     Navigator.of(context, rootNavigator: true).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Error deleting channel: ${e.toString()}")),
@@ -670,7 +712,7 @@ Future<void> deleteUserChannel(String userId) async {
     print("Error deleting channel: $e");
   }
 }
-Future<void> deletePodcast(String podcastId) async {
+Future<void> deletePod(String id) async {
   try {
     // Show loading indicator
     showDialog(
@@ -681,29 +723,43 @@ Future<void> deletePodcast(String podcastId) async {
       },
     );
 
-    // Delete the podcast document from Firestore
-    await FirebaseFirestore.instance.collection('podcasts').doc(podcastId).delete();
-    print('Podcast deleted from Firestore: $podcastId');
+    // First, query for the document with the matching id
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('podcasts')
+        .where('id', isEqualTo: id)
+        .get();
     
+    // Check if we found a document with that id
+    if (querySnapshot.docs.isNotEmpty) {
+      // Delete the document using its actual document ID
+      await FirebaseFirestore.instance
+          .collection('podcasts')
+          .doc(querySnapshot.docs.first.id)
+          .delete();
+      
+      // Close loading indicator
+      Navigator.of(context, rootNavigator: true).pop();
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Podcast deleted successfully")),
+      );
+    } else {
+      // Close loading indicator
+      Navigator.of(context, rootNavigator: true).pop();
+      
+      // Show not found message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Podcast not found")),
+      );
+    }
+  } catch (e) {
     // Close loading indicator
     Navigator.of(context, rootNavigator: true).pop();
     
-    // Update the local pods list by removing the deleted podcast
-    setState(() {
-      pods = pods.where((pod) => pod.id != podcastId).toList();
-    });
-    
-    // Show success message
+    // Show error message
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Podcast deleted successfully")),
-    );
-    
-    // No need to manually refresh - we've updated the local state
-  } catch (e) {
-    // Error handling
-    Navigator.of(context, rootNavigator: true).pop();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error deleting podcast: ${e.toString()}")),
+      SnackBar(content: Text("Error deleting podcast: $e")),
     );
     print("Error deleting podcast: $e");
   }
@@ -789,6 +845,45 @@ String predefinedMessage = "you channel has been removed from our platform follo
     // Close loading indicator
   }
 }
+  Future<void> reportPod(String userId, String podname) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return const Center(child: CircularProgressIndicator());
+        },
+      );
+      
+      // Create a unique reportId
+      String reportId = FirebaseFirestore.instance.collection('reports').doc().id;
+      
+      // Predefined message
+      String predefinedMessage = "$podname has been removed from our platform following community reports. This content violated our community guidelines, which are designed to ensure a safe and positive experience for all users. Thank you for helping maintain the quality and integrity of our community.";
+      
+      // Add report to Firestore
+      await FirebaseFirestore.instance.collection('reports').doc(reportId).set({
+        'reportId': reportId,
+        'userId': userId,
+        'message': predefinedMessage,
+        'reportedAt': FieldValue.serverTimestamp(),
+      });
+      
+      // Close loading indicator
+      Navigator.of(context, rootNavigator: true).pop();
+      
+    } catch (e) {
+      // Close loading indicator
+      Navigator.of(context, rootNavigator: true).pop();
+      
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error reporting user: ${e.toString()}")),
+      );
+      print("Error reporting user: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1358,9 +1453,8 @@ String predefinedMessage = "you channel has been removed from our platform follo
                           margin: EdgeInsets.only(left: screenWidth * 0.008),
                           child: IconButton(
                             onPressed: () async{ 
-                                  
-              await deletePodcast(pods[index].id);
-   
+               await reportPod(pods[index].id, pods[index].name);
+    await deletePod(pods[index].id);
                _setupRealTimeListeners();
               
                               
