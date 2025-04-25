@@ -1,9 +1,12 @@
 
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:untitled6/home.dart';
 import 'package:intl/intl.dart';
 import 'package:untitled6/admin.dart';
+
 
 class Users extends StatefulWidget {
   const Users({super.key});
@@ -26,13 +29,197 @@ TextEditingController searchController = TextEditingController();
   List<USR> users = [];
   int currentPage = 1;
   final int itemsPerPage = 20;
+   StreamSubscription<QuerySnapshot>? _usersSubscription;
+  StreamSubscription<QuerySnapshot>? _podsSubscription;
+  StreamSubscription<QuerySnapshot>? _channelsSubscription;
+StreamSubscription<QuerySnapshot>? _podcastsSubscription;
+
+
+   @override
+  void initState() {
+    super.initState();
+    _setupRealTimeListeners();
+    searchController.addListener(() {
+      filterUsers();
+    });
+  }
 
   @override
-void initState() {
-  super.initState();
-  fetchuser();
-  searchController.addListener(() {
-    filterUsers();
+  void dispose() {
+    _usersSubscription?.cancel();
+   _channelsSubscription?.cancel();
+  _podcastsSubscription?.cancel();
+  _podsSubscription?.cancel();
+  _currentUserPodsSubscription?.cancel(); // Make sure this is here
+  searchController.dispose();
+  super.dispose();
+  }
+void _setupRealTimeListeners() {
+  // Users listener
+  _usersSubscription = FirebaseFirestore.instance
+      .collection('users')
+      .snapshots()
+      .listen((snapshot) {
+    // When users collection changes, update users list
+    final userIds = snapshot.docs.map((doc) => doc.data()['userId']).toList();
+    
+    // Update users basic info
+    final basicUsersList = snapshot.docs.map((doc) {
+      final data = doc.data();
+      
+      // Handle Timestamp conversion
+      String formattedDate = '';
+      if (data['createdAt'] != null) {
+        if (data['createdAt'] is Timestamp) {
+          formattedDate = DateFormat('yyyy-MM-dd').format(data['createdAt'].toDate());
+        } else if (data['createdAt'] is String) {
+          formattedDate = data['createdAt'];
+        }
+      }
+      
+      return USR(
+        firstName: data['firstName']?.toString() ?? 'N/A',
+        lastName: data['lastName']?.toString() ?? 'N/A',
+        email: data['email']?.toString() ?? 'N/A',
+        country: data['country']?.toString() ?? 'N/A',
+        signupd: formattedDate,
+        picture: data['photoUrl']?.toString() ?? '',
+        age: data['age']?.toString() ?? 'N/A',
+        chanel: data['chanel']?.toString() ?? 'N/A',
+        channelPhotoUrl: '',
+        followers: 0,
+        following: 0,
+        likes: 0,
+        pods: 0,
+        userId: data['userId']?.toString() ?? '',
+      );
+    }).toList();
+    
+    setState(() {
+      users = basicUsersList;
+      filteredUsers = basicUsersList;
+    });
+    
+    // Cancel existing channels listener if any
+    _channelsSubscription?.cancel();
+    
+    // Setup channels listener
+    _channelsSubscription = FirebaseFirestore.instance
+        .collection('channels')
+        .where('userId', whereIn: userIds.isEmpty ? [''] : userIds)
+        .snapshots()
+        .listen((channelsSnapshot) {
+      // Update user objects with channel data
+      final updatedUsers = List<USR>.from(users);
+      
+      for (var channelDoc in channelsSnapshot.docs) {
+        final channelData = channelDoc.data();
+        final userId = channelData['userId']?.toString() ?? '';
+        
+        // Find and update the corresponding user
+        final userIndex = updatedUsers.indexWhere((u) => u.userId == userId);
+        if (userIndex >= 0) {
+          final user = updatedUsers[userIndex];
+          
+          updatedUsers[userIndex] = USR(
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            country: user.country,
+            signupd: user.signupd,
+            picture: user.picture,
+            age: user.age,
+            chanel: channelData['name']?.toString() ?? user.chanel,
+            channelPhotoUrl: channelData['photoUrl']?.toString() ?? user.channelPhotoUrl,
+            followers: channelData['followers'] is int ? channelData['followers'] :
+                      int.tryParse(channelData['followers']?.toString() ?? '0') ?? 0,
+            following: channelData['following'] is int ? channelData['following'] :
+                      int.tryParse(channelData['following']?.toString() ?? '0') ?? 0,
+            likes: user.likes,
+            pods: user.pods,
+            userId: user.userId,
+          );
+        }
+      }
+      
+      setState(() {
+        users = updatedUsers;
+        filterUsers(); // Apply current filter
+      });
+    });
+    
+    // Cancel existing podcasts listener if any
+    _podcastsSubscription?.cancel();
+    
+    // Setup podcasts listener - this is a heavy operation
+    _podcastsSubscription = FirebaseFirestore.instance
+        .collection('podcasts')
+        .where('idUser', whereIn: userIds.isEmpty ? [''] : userIds)
+        .snapshots()
+        .listen((podsSnapshot) {
+      // Group podcasts by user
+      final podsByUser = <String, List<Map<String, dynamic>>>{};
+      
+      for (var podDoc in podsSnapshot.docs) {
+        final podData = podDoc.data();
+        final userId = podData['idUser']?.toString() ?? '';
+        
+        if (!podsByUser.containsKey(userId)) {
+          podsByUser[userId] = [];
+        }
+        
+        podsByUser[userId]!.add(podData);
+      }
+      
+      // Update user objects with podcast data
+      final updatedUsers = List<USR>.from(users);
+      
+      for (final userId in podsByUser.keys) {
+        final userPods = podsByUser[userId]!;
+        final userIndex = updatedUsers.indexWhere((u) => u.userId == userId);
+        
+        if (userIndex >= 0) {
+          final user = updatedUsers[userIndex];
+          
+          // Calculate totals
+          int totalPods = userPods.length;
+          int totalLikes = 0;
+          
+          for (var podData in userPods) {
+            var podLikes = podData['likes'];
+            if (podLikes != null) {
+              if (podLikes is int) {
+                totalLikes += podLikes;
+              } else {
+                totalLikes += int.tryParse(podLikes.toString()) ?? 0;
+              }
+            }
+          }
+          
+          updatedUsers[userIndex] = USR(
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            country: user.country,
+            signupd: user.signupd,
+            picture: user.picture,
+            age: user.age,
+            chanel: user.chanel,
+            channelPhotoUrl: user.channelPhotoUrl,
+            followers: user.followers,
+            following: user.following,
+            likes: totalLikes,
+            pods: totalPods,
+            userId: user.userId,
+          );
+        }
+      }
+      
+      setState(() {
+        users = updatedUsers;
+        filterUsers(); // Apply current filter
+      });
+    });
   });
 }
 String formatNumber(dynamic value) {
@@ -68,36 +255,56 @@ void filterUsers() {
     currentPage = 1;
   });
 }
-Future<void> fetchPods(id) async {
-  try {
-    print("Fetching pods for user: $id");
-    final querySnapshot = await FirebaseFirestore.instance
-      .collection('podcasts')
-      .where('idUser', isEqualTo: id)
-      .get();
-    
-    print("Found ${querySnapshot.docs.length} pods");
-    
-    final podsList = querySnapshot.docs.map((doc) {
-      final data = doc.data();
-      return Pod(
-        name: data['name'] ?? '',
-        picture: data['urlPhoto'] ?? '',
-        likes: data['likes'] ?? '0', 
-        comments: data['comments'] ?? '0', 
-        lis: data['vue'] ?? '0', 
-        id: data['id'] ?? '0', 
-      );
-    }).toList();
+StreamSubscription<QuerySnapshot>? _currentUserPodsSubscription;
 
-    setState(() {
-      pods = podsList;
+void setupPodsListener(String userId) {
+  // Cancel any existing subscription first
+  _currentUserPodsSubscription?.cancel();
+  
+  // Clear the current pods list immediately
+  setState(() {
+    pods = [];
+  });
+  
+  print("Setting up pods listener for user ID: $userId");
+  
+  // Set up real-time listener for this user's podcasts
+  _currentUserPodsSubscription = FirebaseFirestore.instance
+    .collection('podcasts')
+    .where('idUser', isEqualTo: userId)
+    .snapshots()
+    .listen((querySnapshot) {
+      if (querySnapshot.docs.isEmpty) {
+        print("No podcasts found for user ID: $userId");
+        setState(() {
+          pods = [];
+        });
+        return;
+      }
+      
+      print("Found ${querySnapshot.docs.length} podcasts for user ID: $userId");
+      
+      final podsList = querySnapshot.docs.map((doc) {
+        final data = doc.data();
+        return Pod(
+          name: data['name'] ?? '',
+          picture: data['urlPhoto'] ?? '',
+          likes: data['likes'] is int ? data['likes'] : int.tryParse(data['likes']?.toString() ?? '0') ?? 0, 
+          comments: data['comments'] is int ? data['comments'] : int.tryParse(data['comments']?.toString() ?? '0') ?? 0, 
+          lis: data['vue'] is int ? data['vue'] : int.tryParse(data['vue']?.toString() ?? '0') ?? 0, 
+          id: doc.id,
+        );
+      }).toList();
+
+      setState(() {
+        pods = podsList;
+      });
+    }, onError: (error) {
+      print("Error fetching podcasts: $error");
+      setState(() {
+        pods = [];
+      });
     });
-    
-    print("Pods set in state: ${pods.length}");
-  } catch (e) {
-    print("Error fetching pods: $e");
-  }
 }
 Future deleteUserAccount(String userId) async {
   try {
@@ -186,7 +393,7 @@ Future deleteUserAccount(String userId) async {
     );
     
     // Refresh the user list
-    fetchuser();
+    _setupRealTimeListeners();
   } catch (e) {
     // Close loading indicator and show error message
     Navigator.of(context, rootNavigator: true).pop();
@@ -196,109 +403,7 @@ Future deleteUserAccount(String userId) async {
     print("Error deleting user account: $e");
   }
 }
-Future<void> fetchuser() async {
-  try {
-    final querySnapshot = await FirebaseFirestore.instance.collection('users').get();
 
-    final usersList = await Future.wait(querySnapshot.docs.map((doc) async {
-      final data = doc.data();
-
-      // Handle Timestamp conversion
-      String formattedDate = '';
-      if (data['createdAt'] != null) {
-        if (data['createdAt'] is Timestamp) {
-          formattedDate = DateFormat('yyyy-MM-dd').format(data['createdAt'].toDate());
-        } else if (data['createdAt'] is String) {
-          formattedDate = data['createdAt'];
-        }
-      }
-
-      // Fetch channel data if userId exists
-      Map<String, dynamic>? channelData;
-      int followers = 0;
-      int following = 0;
-      String channelName = data['chanel']?.toString() ?? 'N/A';
-      String channelPhotoUrl = '';
-      
-      // Variables for pods and likes totals
-      int totalPods = 0;
-      int totalLikes = 0;
-      
-      if (data['userId'] != null) {
-        try {
-          // Fetch channel data
-          final channelDocs = await FirebaseFirestore.instance
-              .collection('channels')
-              .where('userId', isEqualTo: data['userId'])
-              .get();
-          
-          if (channelDocs.docs.isNotEmpty) {
-            channelData = channelDocs.docs.first.data();
-            followers = channelData['followers'] is int ? channelData['followers'] : 
-                      int.tryParse(channelData['followers']?.toString() ?? '0') ?? 0;
-            following = channelData['following'] is int ? channelData['following'] : 
-                      int.tryParse(channelData['following']?.toString() ?? '0') ?? 0;
-            channelName = channelData['name']?.toString() ?? channelName;
-            channelPhotoUrl = channelData['photoUrl']?.toString() ?? '';
-          }
-
-          // Fetch pods data for this user
-          final podsSnapshot = await FirebaseFirestore.instance
-              .collection('podcasts')
-              .where('idUser', isEqualTo: data['userId'])
-              .get();
-          
-          // Calculate totals
-          totalPods = podsSnapshot.docs.length;
-          
-          // Sum up all likes from the pods
-          for (var podDoc in podsSnapshot.docs) {
-            var podData = podDoc.data();
-            // Handle likes value that could be string or int
-            var podLikes = podData['likes'];
-            if (podLikes != null) {
-              if (podLikes is int) {
-                totalLikes += podLikes;
-              } else {
-                totalLikes += int.tryParse(podLikes.toString()) ?? 0;
-              }
-            }
-          }
-          
-        } catch (e) {
-          print("Error fetching channel or pods data: $e");
-        }
-      }
-
-      return USR(
-        firstName: data['firstName']?.toString() ?? 'N/A',
-        lastName: data['lastName']?.toString() ?? 'N/A',
-        email: data['email']?.toString() ?? 'N/A',
-        country: data['country']?.toString() ?? 'N/A',
-        signupd: formattedDate,
-        picture: data['photoUrl']?.toString() ?? '',
-        age: data['age']?.toString() ?? 'N/A',
-        chanel: channelName,
-        channelPhotoUrl: channelPhotoUrl,
-        followers: followers,
-        following: following,
-        // Update these to use the calculated values
-        likes: totalLikes,
-        pods: totalPods,
-        userId: data['userId']?.toString() ?? '',
-      );
-    }).toList());
-
-    setState(() {
-      users = usersList;
-      filteredUsers = usersList; // Initialize filteredUsers with all users
-    });
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error loading users: ${e.toString()}")),
-    );
-  }
-}
 
 List<USR> get paginatedItems {
   int start = (currentPage - 1) * itemsPerPage;
@@ -476,7 +581,7 @@ Future<void> showDeleteUserDialog(String userId) async {
                                   SnackBar(content: Text(message)),
                                 );
                                 // Refresh the user list
-                                fetchuser(); // You'll need to implement this metho
+                                _setupRealTimeListeners(); // You'll need to implement this metho
                             },
                             child: Text(
                               "Delete",
@@ -575,49 +680,21 @@ Future<void> deletePodcast(String podcastId) async {
       },
     );
 
-    // Find the podcast document by ID
-    final podcastDoc = await FirebaseFirestore.instance
-        .collection('podcasts')
-        .doc(podcastId)
-        .get();
+    // Delete the podcast document from Firestore
+    await FirebaseFirestore.instance.collection('podcasts').doc(podcastId).delete();
+    print('Podcast deleted from Firestore: $podcastId');
     
-    if (podcastDoc.exists) {
-      // Store the user ID before deleting the podcast
-      String userId = podcastDoc.data()?['idUser'] ?? '';
-      
-      // Delete the podcast document from Firestore
-      await FirebaseFirestore.instance.collection('podcasts').doc(podcastId).delete();
-      print('Podcast deleted from Firestore: $podcastId');
-      
-      // Close loading indicator
-      Navigator.of(context, rootNavigator: true).pop();
-      
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Podcast deleted successfully")),
-      );
-      
-      // Refresh pods list for the current user
-      if (userId.isNotEmpty) {
-        await fetchPods(userId);
-        
-        // Important: Refresh the entire user list to update counts
-        await fetchuser();
-        
-        // Force a UI refresh
-        setState(() {
-          // The state update ensures the UI refreshes
-        });
-      }
-    } else {
-      // Podcast not found
-      Navigator.of(context, rootNavigator: true).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Podcast not found")),
-      );
-    }
+    // Close loading indicator
+    Navigator.of(context, rootNavigator: true).pop();
+    
+    // Show success message
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Podcast deleted successfully")),
+    );
+    
+    // No need to manually refresh - the listener will handle it
   } catch (e) {
-    // Close loading indicator and show error message
+    // Error handling
     Navigator.of(context, rootNavigator: true).pop();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Error deleting podcast: ${e.toString()}")),
@@ -1061,11 +1138,14 @@ String predefinedMessage = "you channel has been removed from our platform follo
                                                   margin: EdgeInsets.only(left: screenWidth * 0.018),
                                                   child: Center(
                                                     child: TextButton(
-                                                     onPressed: () async {
-  await fetchPods(paginatedItems[index].userId);
-    await fetchuser(); // Refresh all user data
-  
-  // Force a UI refresh before showing dialog
+                                                     onPressed: () async { if  (paginatedItems[index].chanel == 'N/A') 
+                            {}                         
+                                                     else {
+       
+    setupPodsListener(paginatedItems[index].userId);
+    
+    await Future.delayed(Duration(milliseconds: 300));
+
   setState(() {}); // Wait for pods to load
   showDialog(
     context: context,
@@ -1196,10 +1276,12 @@ String predefinedMessage = "you channel has been removed from our platform follo
             Container(
               color: Colors.white,
               width: screenWidth * 0.4,
-              height: screenHeight * 0.4, // Fixed height instead of Expanded
-              child: ListView.builder( // Changed to ListView.builder for efficiency
+              height: screenHeight * 0.4,
+               // Fixed height instead of Expanded
+              child:  ListView.builder( // Changed to ListView.builder for efficiency
                 itemCount: pods.length,
                 itemBuilder: (context, index) {
+                  
                   return Container(
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.black12, width: 3),
@@ -1270,10 +1352,10 @@ String predefinedMessage = "you channel has been removed from our platform follo
                           margin: EdgeInsets.only(left: screenWidth * 0.008),
                           child: IconButton(
                             onPressed: () async{ 
-                                    Navigator.of(context).pop(); // Close dialog
+                                  
               await deletePodcast(pods[index].id);
-              await fetchPods(paginatedItems[index].userId);
-              await fetchuser();
+   
+               _setupRealTimeListeners();
               
                               
                               },
@@ -1299,7 +1381,15 @@ String predefinedMessage = "you channel has been removed from our platform follo
       ),
     );
     },
-  );
+  ).then((_) {
+      // When dialog closes, cancel the pods subscription
+      _currentUserPodsSubscription?.cancel();
+          setState(() {
+        pods = [];
+      });
+    });
+  
+  }
 },
                                                       child: Text(
                                                         paginatedItems[index].chanel,

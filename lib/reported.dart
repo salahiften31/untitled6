@@ -520,7 +520,8 @@ String predefinedMessage = "you channel has been removed from our platform follo
                                   reportcha(chan[index].uid);
                                               //  deleteUserChannel(chan[index].uid);
                                                Navigator.of(context).pop();
-                                               fetchPods();
+                                               deleteUserChannel(chan[index].uid);
+                                               fetchChanel();
                                               },
                                               child: Text("delete"),
                                             ),
