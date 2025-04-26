@@ -695,6 +695,34 @@ Future<void> deleteUserChannel(String userId) async {
         .collection('mesplaylist')
         .where('iduser', isEqualTo: userId)
         .get();
+        final followers = await FirebaseFirestore.instance
+        .collection('follow')
+        .where('idfollowing', isEqualTo: userId)
+        .get();
+    
+    // Get each follower's channel ID and decrement their following count
+    for (var doc in followers.docs) {
+      String followerUserId = doc.data()['idfollowers'];
+      
+      // Get the channel document of the follower user
+      final channelDocs = await FirebaseFirestore.instance
+          .collection('channels')
+          .where('userId', isEqualTo: followerUserId)
+          .get();
+      
+      if (channelDocs.docs.isNotEmpty) {
+        var channelDoc = channelDocs.docs.first;
+        int currentFollowing = channelDoc.data()['following'] ?? 0;
+        if (currentFollowing > 0) {
+          await channelDoc.reference.update({'following': currentFollowing - 1});
+          print('Updated following count for channel: ${channelDoc.id}');
+        }
+      }
+      
+      // Delete the follow relationship
+      await doc.reference.delete();
+    }
+
         
     for (var doc in mesPlaylistRefs.docs) {
       await doc.reference.delete();
