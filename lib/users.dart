@@ -1,11 +1,12 @@
 
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:untitled6/home.dart';
 import 'package:intl/intl.dart';
-import 'package:untitled6/admin.dart';
 
 
 class Users extends StatefulWidget {
@@ -267,7 +268,6 @@ void setupPodsListener(String userId) {
     pods = [];
   });
   
-  print("Setting up pods listener for user ID: $userId");
   
   // Set up real-time listener for this user's podcasts
   _currentUserPodsSubscription = FirebaseFirestore.instance
@@ -276,14 +276,12 @@ void setupPodsListener(String userId) {
     .snapshots()
     .listen((querySnapshot) {
       if (querySnapshot.docs.isEmpty) {
-        print("No podcasts found for user ID: $userId");
         setState(() {
           pods = [];
         });
         return;
       }
       
-      print("Found ${querySnapshot.docs.length} podcasts for user ID: $userId");
       
       final podsList = querySnapshot.docs.map((doc) {
         final data = doc.data();
@@ -301,7 +299,6 @@ void setupPodsListener(String userId) {
         pods = podsList;
       });
     }, onError: (error) {
-      print("Error fetching podcasts: $error");
       setState(() {
         pods = [];
       });
@@ -326,7 +323,6 @@ Future deleteUserAccount(String userId) async {
     
     for (var doc in userDocs.docs) {
       await doc.reference.delete();
-      print('User deleted from Firestore: ${doc.id}');
     }
     
     // Step 2: Find all relationships where the deleted user is following others
@@ -350,7 +346,6 @@ Future deleteUserAccount(String userId) async {
         int currentFollowers = channelDoc.data()['followers'] ?? 0;
         if (currentFollowers > 0) {
           await channelDoc.reference.update({'followers': currentFollowers - 1});
-          print('Updated follower count for channel: ${channelDoc.id}');
         }
       }
       
@@ -379,7 +374,6 @@ Future deleteUserAccount(String userId) async {
         int currentFollowing = channelDoc.data()['following'] ?? 0;
         if (currentFollowing > 0) {
           await channelDoc.reference.update({'following': currentFollowing - 1});
-          print('Updated following count for channel: ${channelDoc.id}');
         }
       }
       
@@ -401,7 +395,6 @@ Future deleteUserAccount(String userId) async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Error deleting user account: ${e.toString()}")),
     );
-    print("Error deleting user account: $e");
   }
 }
 
@@ -503,7 +496,7 @@ Future<void> showDeleteUserDialog(String userId) async {
                       ],
                     ),
                   ),
-                  Container(
+                  SizedBox(
                     width: screenWidth * 0.25,
                     child: Row(
                       children: [
@@ -626,7 +619,6 @@ Future<void> deleteUserChannel(String userId) async {
     
     for (var doc in channelDocs.docs) {
       await doc.reference.delete();
-      print('Channel deleted from Firestore: ${doc.id}');
     }
 
     // Step 2: Find and delete all podcasts by this user
@@ -646,12 +638,10 @@ Future<void> deleteUserChannel(String userId) async {
           
       for (var playInPodDoc in playInPodRefs.docs) {
         await playInPodDoc.reference.delete();
-        print('Deleted playinpod reference: ${playInPodDoc.id}');
       }
       
       // Now delete the podcast
       await doc.reference.delete();
-      print('Deleted podcast: ${doc.id}');
     }
     
     // Step 3: Find and delete all playlists by this user
@@ -671,12 +661,10 @@ Future<void> deleteUserChannel(String userId) async {
           
       for (var playInPodDoc in playInPodRefs.docs) {
         await playInPodDoc.reference.delete();
-        print('Deleted playinpod reference: ${playInPodDoc.id}');
       }
       
       // Now delete the playlist
       await doc.reference.delete();
-      print('Deleted playlist: ${doc.id}');
     }
     
     // NEW CODE: Delete references in myplaylist for this user
@@ -687,7 +675,6 @@ Future<void> deleteUserChannel(String userId) async {
         
     for (var doc in myPlaylistRefs.docs) {
       await doc.reference.delete();
-      print('Deleted myplaylist reference: ${doc.id}');
     }
     
     // NEW CODE: Delete references in mesplaylist for this user
@@ -715,7 +702,6 @@ Future<void> deleteUserChannel(String userId) async {
         int currentFollowing = channelDoc.data()['following'] ?? 0;
         if (currentFollowing > 0) {
           await channelDoc.reference.update({'following': currentFollowing - 1});
-          print('Updated following count for channel: ${channelDoc.id}');
         }
       }
       
@@ -726,7 +712,6 @@ Future<void> deleteUserChannel(String userId) async {
         
     for (var doc in mesPlaylistRefs.docs) {
       await doc.reference.delete();
-      print('Deleted mesplaylist reference: ${doc.id}');
     }
     
     reportcha(userId);
@@ -792,7 +777,6 @@ Future<void> deleteUserChannel(String userId) async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Error deleting channel: ${e.toString()}")),
     );
-    print("Error deleting channel: $e");
   }
 }
 
@@ -831,7 +815,6 @@ Future<void> deletePod(String id) async {
         
         // Delete the playinpod reference
         await playInPodDoc.reference.delete();
-        print('Deleted playinpod reference: ${playInPodDoc.id}');
         
         // Optionally: Update the playlist's podcast count
         if (playlistId != null) {
@@ -849,7 +832,6 @@ Future<void> deletePod(String id) async {
                 .doc(playlistId)
                 .update({'podcast': newCount});
                 
-            print('Updated playlist podcast count: $playlistId');
           }
         }
       }
@@ -864,7 +846,6 @@ Future<void> deletePod(String id) async {
             
         for (var doc in myPlaylistRefs.docs) {
           await doc.reference.delete();
-          print('Deleted myplaylist reference: ${doc.id}');
         }
         
         // NEW CODE: Delete references in mesplaylist related to this podcast
@@ -876,7 +857,6 @@ Future<void> deletePod(String id) async {
             
         for (var doc in mesPlaylistRefs.docs) {
           await doc.reference.delete();
-          print('Deleted mesplaylist reference: ${doc.id}');
         }
       }
       
@@ -910,7 +890,6 @@ Future<void> deletePod(String id) async {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Error deleting podcast: $e")),
     );
-    print("Error deleting podcast: $e");
   }
 }
 Future<void> reportUser(String userId) async {
@@ -956,7 +935,6 @@ String predefinedMessage = "Warning: We've noticed some suspicious activity in y
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text("Error reporting user: ${e.toString()}")),
     );
-    print("Error reporting user: $e");
   }
 }
 Future<void> reportcha(String userId ) async {
@@ -1033,7 +1011,6 @@ String predefinedMessage = "you channel has been removed from our platform follo
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error reporting user: ${e.toString()}")),
       );
-      print("Error reporting user: $e");
     }
   }
 
@@ -1330,7 +1307,7 @@ String predefinedMessage = "you channel has been removed from our platform follo
                                   Column(
                                     children: List.generate(
                                       paginatedItems.length, // Use paginatedItems instead of users
-                                      (index) => Container(
+                                      (index) => SizedBox(
                                         width: screenWidth * 0.75,
                                         child: Card(
                                           shape: RoundedRectangleBorder(
@@ -1707,10 +1684,10 @@ String predefinedMessage = "you channel has been removed from our platform follo
                   Navigator.of(context).pop();
                   reportUser(filteredUsers[actualIndex].userId);
                 },
-                child: Text("Report"),
                 style: TextButton.styleFrom(
                   foregroundColor: Colors.red,
                 ),
+                child: Text("Report"),
               ),
             ],
           );

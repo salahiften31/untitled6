@@ -759,64 +759,64 @@ void showAddAdminDialog() {
                                           margin: EdgeInsets.symmetric(vertical: 10),
                                           child: Container(
                                             margin: EdgeInsets.symmetric(vertical: 10),
-                                            child: Row(
-                                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                                              children: [
-                                                // Name
-                                                Container(
-                                                  width: screenWidth * 0.10,
-                                                  margin: EdgeInsets.only(left: screenWidth * 0.05),
-                                                  child: Center(
-                                                    child: Text(
-                                                      paginatedItems[index].name,
-                                                      style: TextStyle(fontSize: screenWidth * 0.008),
-                                                    ),
-                                                  ),
-                                                ),
-                                                // Code
-                                                Container(
-                                                  width: screenWidth * 0.08,
-                                                  margin: EdgeInsets.only(left: screenWidth * 0.025),
-                                                  child: Center(
-                                                    child: Text(
-                                                      paginatedItems[index].code,
-                                                      style: TextStyle(fontSize: screenWidth * 0.008),
-                                                    ),
-                                                  ),
-                                                ),
-                                                // Rank
-                                                Container(
-                                                  width: screenWidth * 0.08,
-                                                  margin: EdgeInsets.only(left: screenWidth * 0.04),
-                                                  child: 
-                                                  
-                                                  Center(
-                                                    child: Text(
-                                                      paginatedItems[index].rank,
-                                                      style: TextStyle(fontSize: screenWidth * 0.008),
-                                                    ),
-                                                  ),
-                                                ),
-                                                // Delete Button
-                                             // Delete Button - Only show if rank isn't "creator"
-Container(
-  margin: EdgeInsets.only(left: screenWidth * 0.11),
-  child: Center(
-    child: paginatedItems[index].rank.toLowerCase() != "creator" 
-      ? IconButton(
-          onPressed: () {
-            int actualIndex = (currentPage - 1) * itemsPerPage + index;
-            if (actualIndex < items.length) {
-              showDeleteConfirmationDialog(items[actualIndex].code);
-            }
-          },
-          icon: Icon(Icons.delete),
-        )
-      : SizedBox(), // Empty container when rank is "creator"
-  ),
+                                            child: // Replace the Row in the Card with this improved version:
+Row(
+  mainAxisAlignment: MainAxisAlignment.spaceAround,
+  children: [
+    // Name
+    Container(
+      width: screenWidth * 0.10,
+      margin: EdgeInsets.only(left: screenWidth * 0.07),
+      child: Center(
+        child: Text(
+          paginatedItems[index].name,
+          style: TextStyle(fontSize: screenWidth * 0.008),
+        ),
+      ),
+    ),
+    // Code
+    Container(
+      // Remove color: Colors.black that was causing text visibility issues
+      width: screenWidth * 0.08,
+      margin: EdgeInsets.only(left: screenWidth * 0.03),
+      child: Center(
+        child: Text(
+          paginatedItems[index].code,
+          style: TextStyle(fontSize: screenWidth * 0.008),
+        ),
+      ),
+    ),
+    // Rank
+    Container(
+      width: screenWidth * 0.08,
+      margin: EdgeInsets.only(left: screenWidth * 0.048),
+      child: Center(
+        child: Text(
+          paginatedItems[index].rank,
+          style: TextStyle(fontSize: screenWidth * 0.008),
+        ),
+      ),
+    ),
+    // Delete Button or Empty Container with same width
+    Container(
+      width: screenWidth * 0.05,
+      margin: EdgeInsets.only(left: screenWidth * 0.11),
+      child: Center(
+        child: paginatedItems[index].rank.toLowerCase() != "creator"
+            ? IconButton(
+                onPressed: () {
+                  int actualIndex = (currentPage - 1) * itemsPerPage + index;
+                  if (actualIndex < items.length) {
+                    showDeleteConfirmationDialog(items[actualIndex].code);
+                  }
+                },
+                icon: Icon(Icons.delete),
+              )
+            : SizedBox(width: 24, height: 24), // Empty container with same dimensions as icon
+      ),
+    ),
+  ],
 ),
-                                              ],
-                                            ),
                                           ),
                                         ),
                                       ),

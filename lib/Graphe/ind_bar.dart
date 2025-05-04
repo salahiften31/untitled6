@@ -1,3 +1,4 @@
+// ignore: camel_case_types
 class Ind_bar {
 late final double users;
 late final String month;

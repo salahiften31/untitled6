@@ -1,8 +1,11 @@
+// ignore_for_file: avoid_print, use_build_context_synchronously
+
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:untitled6/home.dart';
+// ignore: library_prefixes
 import 'dart:math' as Math;
 
 class Reported extends StatefulWidget {
@@ -286,6 +289,7 @@ class _ReportedState extends State<Reported> {
       });
       
       // Close loading indicator
+   
       Navigator.of(context, rootNavigator: true).pop();
       
     } catch (e) {
@@ -376,18 +380,18 @@ class _ReportedState extends State<Reported> {
             
         // We don't need to update state manually since real-time listener will handle it
         
-        // ignore: use_build_context_synchronously
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Podcast deleted")),
         );
       } else {
-        // ignore: use_build_context_synchronously
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Podcast not found")),
         );
       }
     } catch (e) {
-      // ignore: use_build_context_synchronously
+     
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error deleting podcast: $e")),
       );
@@ -628,231 +632,227 @@ class _ReportedState extends State<Reported> {
           // Main Content Area
           SizedBox(
             child: SingleChildScrollView(
-              child: Container(
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black12, width: 4),
+                          borderRadius: BorderRadius.all(Radius.circular(20))
+                        ),
+                        height: screenHeight * 0.9,
+                        margin: EdgeInsets.only(left: screenWidth * 0.02),
+                        width: screenWidth * 0.3,
+                        child: ListView(
+                          children: [
+                            Center(
+                              child: Text(
+                                "Reported Channels",
+                                style: TextStyle(fontSize: screenHeight * 0.025),
+                              ),
+                            ),
+                            Column(
+                              children: List.generate(
+                                chan.length,
+                                (index) => Container(
+                                  margin: EdgeInsets.only(top: screenHeight * 0.02),
+                                  child: Card(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(50),
+                                    ),
+                                    child: Container(
+                                      padding: EdgeInsets.only(right: screenWidth * 0.01),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: Colors.black12, width: 3),
+                                        borderRadius: BorderRadius.circular(50)
+                                      ),
+                                      height: screenHeight * 0.08,
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            margin: EdgeInsets.only(left: screenWidth * 0.02),
+                                            height: screenHeight * 0.055,
+                                            width: screenWidth * 0.03,
+                                            child: ClipOval(
+                                              child: Image.network(chan[index].pic, fit: BoxFit.fill),
+                                            ),
+                                          ),
+                                          Container(
+                                            margin: EdgeInsets.only(left: screenWidth * 0.02),
+                                            child: Text(
+                                              chan[index].name,
+                                              style: TextStyle(fontSize: screenHeight * 0.02),
+                                            )
+                                          ),
+                                          Spacer(),
+                                          Container(
+                                            margin: EdgeInsets.only(left: screenWidth * 0.05),
+                                            child: IconButton(
+                                              onPressed: () {
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (BuildContext context) {
+                                                    return AlertDialog(
+                                                      title: Text("Confirm delete"),
+                                                      content: Text("Are you sure you want to delete?"),
+                                                      actions: [
+                                                        TextButton(
+                                                          onPressed: () {
+                                                            Navigator.of(context).pop();
+                                                          },
+                                                          child: Text("Cancel"),
+                                                        ),
+                                                        TextButton(
+                                                          onPressed: () {
+                                                            reportcha(chan[index].uid);
+                                                            Navigator.of(context).pop();
+                                                            deleteUserChannel(chan[index].uid);
+                                                          },
+                                                          child: Text("Delete"),
+                                                        ),
+                                                      ],
+                                                    );
+                                                  },
+                                                );
+                                              },
+                                              icon: Icon(Icons.delete_outline)
+                                            ),
+                                          )
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.black12, width: 4),
+                          borderRadius: BorderRadius.all(Radius.circular(20))
+                        ),
+                        height: screenHeight * 0.9,
+                        margin: EdgeInsets.only(left: screenWidth * 0.16),
+                        width: screenWidth * 0.3,
+                        child: ListView(
+                          children: [
+                            Center(
+                              child: Text(
+                                "Reported Podcasts",
+                                style: TextStyle(fontSize: screenHeight * 0.025),
+                              ),
+                            ),
+                            Column(
+                              children: List.generate(
+                                pods.length,
+                                (index) => Container(
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.black12, width: 3),
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  margin: EdgeInsets.only(top: screenHeight * 0.04),
+                                  width: screenWidth * 0.28,
+                                  height: screenHeight * 0.15,
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        margin: EdgeInsets.only(left: screenWidth * 0.025),
+                                        height: screenHeight * 0.065,
+                                        width: screenWidth * 0.03,
+                                        child: ClipOval(
+                                          child: Image.network(pods[index].picture, fit: BoxFit.fill),
+                                        ),
+                                      ),
+                                      Container(
+                                        margin: EdgeInsets.only(left: screenWidth * 0.015),
+                                        width: screenWidth * 0.06,
+                                        child: Text(
+                                          pods[index].name,
+                                          style: TextStyle(fontSize: screenWidth * 0.01),
+                                        ),
+                                      ),
+                                      Container(
+                                        margin: EdgeInsets.only(left: screenWidth * 0.1),
+                                        child: IconButton(
+                                          onPressed: () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (BuildContext context) {
+                                                return AlertDialog(
+                                                  title: Text("Confirm delete"),
+                                                  content: Text("Are you sure you want to delete?"),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        Navigator.of(context).pop();
+                                                      },
+                                                      child: Text("Cancel"),
+                                                    ),
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        reportPod(pods[index].id, pods[index].name);
+                                                        deletePod(pods[index].id);
+                                                        Navigator.of(context).pop();
+                                                      },
+                                                      child: Text("Delete"),
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            );
+                                          },
+                                          icon: Icon(Icons.delete_outline),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(height: screenHeight * 0.02),
+                  Container(
+                    margin: EdgeInsets.only(left: screenWidth * 0.02),
+                    width: screenWidth * 0.77,
+                    height: screenHeight * 0.6,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black12, width: 3),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: ListView(
                       children: [
                         Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.black12, width: 4),
-                            borderRadius: BorderRadius.all(Radius.circular(20))
-                          ),
-                          height: screenHeight * 0.9,
                           margin: EdgeInsets.only(left: screenWidth * 0.02),
-                          width: screenWidth * 0.3,
-                          child: ListView(
-                            children: [
-                              Center(
-                                child: Text(
-                                  "Reported Channels",
-                                  style: TextStyle(fontSize: screenHeight * 0.025),
-                                ),
-                              ),
-                              Column(
-                                children: List.generate(
-                                  chan.length,
-                                  (index) => Container(
-                                    margin: EdgeInsets.only(top: screenHeight * 0.02),
-                                    child: Card(
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(50),
-                                      ),
-                                      child: Container(
-                                        padding: EdgeInsets.only(right: screenWidth * 0.01),
-                                        decoration: BoxDecoration(
-                                          border: Border.all(color: Colors.black12, width: 3),
-                                          borderRadius: BorderRadius.circular(50)
-                                        ),
-                                        height: screenHeight * 0.08,
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              margin: EdgeInsets.only(left: screenWidth * 0.02),
-                                              height: screenHeight * 0.055,
-                                              width: screenWidth * 0.03,
-                                              child: ClipOval(
-                                                child: Image.network(chan[index].pic, fit: BoxFit.fill),
-                                              ),
-                                            ),
-                                            Container(
-                                              margin: EdgeInsets.only(left: screenWidth * 0.02),
-                                              child: Text(
-                                                chan[index].name,
-                                                style: TextStyle(fontSize: screenHeight * 0.02),
-                                              )
-                                            ),
-                                            Spacer(),
-                                            Container(
-                                              margin: EdgeInsets.only(left: screenWidth * 0.05),
-                                              child: IconButton(
-                                                onPressed: () {
-                                                  showDialog(
-                                                    context: context,
-                                                    builder: (BuildContext context) {
-                                                      return AlertDialog(
-                                                        title: Text("Confirm delete"),
-                                                        content: Text("Are you sure you want to delete?"),
-                                                        actions: [
-                                                          TextButton(
-                                                            onPressed: () {
-                                                              Navigator.of(context).pop();
-                                                            },
-                                                            child: Text("Cancel"),
-                                                          ),
-                                                          TextButton(
-                                                            onPressed: () {
-                                                              reportcha(chan[index].uid);
-                                                              Navigator.of(context).pop();
-                                                              deleteUserChannel(chan[index].uid);
-                                                            },
-                                                            child: Text("Delete"),
-                                                          ),
-                                                        ],
-                                                      );
-                                                    },
-                                                  );
-                                                },
-                                                icon: Icon(Icons.delete_outline)
-                                              ),
-                                            )
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                          width: screenWidth * 0.08,
+                          child: Text(
+                            "Users Reports",
+                            style: TextStyle(fontSize: screenHeight * 0.025),
                           ),
                         ),
-                        Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.black12, width: 4),
-                            borderRadius: BorderRadius.all(Radius.circular(20))
-                          ),
-                          height: screenHeight * 0.9,
-                          margin: EdgeInsets.only(left: screenWidth * 0.16),
-                          width: screenWidth * 0.3,
-                          child: ListView(
-                            children: [
-                              Center(
-                                child: Text(
-                                  "Reported Podcasts",
-                                  style: TextStyle(fontSize: screenHeight * 0.025),
-                                ),
+                        Column(
+                          children: List.generate(
+                            reports.length,
+                            (index) => Card(
+                              child: ListTile(
+                                leading: Icon(Icons.mail_outlined),
+                                title: Text(reports[index].name),
+                                subtitle: Text(reports[index].message),
                               ),
-                              Column(
-                                children: List.generate(
-                                  pods.length,
-                                  (index) => Container(
-                                    decoration: BoxDecoration(
-                                      border: Border.all(color: Colors.black12, width: 3),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    margin: EdgeInsets.only(top: screenHeight * 0.04),
-                                    width: screenWidth * 0.28,
-                                    height: screenHeight * 0.15,
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          margin: EdgeInsets.only(left: screenWidth * 0.025),
-                                          height: screenHeight * 0.065,
-                                          width: screenWidth * 0.03,
-                                          child: ClipOval(
-                                            child: Image.network(pods[index].picture, fit: BoxFit.fill),
-                                          ),
-                                        ),
-                                        Container(
-                                          margin: EdgeInsets.only(left: screenWidth * 0.015),
-                                          width: screenWidth * 0.06,
-                                          child: Text(
-                                            pods[index].name,
-                                            style: TextStyle(fontSize: screenWidth * 0.01),
-                                          ),
-                                        ),
-                                        Container(
-                                          margin: EdgeInsets.only(left: screenWidth * 0.1),
-                                          child: IconButton(
-                                            onPressed: () {
-                                              showDialog(
-                                                context: context,
-                                                builder: (BuildContext context) {
-                                                  return AlertDialog(
-                                                    title: Text("Confirm delete"),
-                                                    content: Text("Are you sure you want to delete?"),
-                                                    actions: [
-                                                      TextButton(
-                                                        onPressed: () {
-                                                          Navigator.of(context).pop();
-                                                        },
-                                                        child: Text("Cancel"),
-                                                      ),
-                                                      TextButton(
-                                                        onPressed: () {
-                                                          reportPod(pods[index].id, pods[index].name);
-                                                          deletePod(pods[index].id);
-                                                          Navigator.of(context).pop();
-                                                        },
-                                                        child: Text("Delete"),
-                                                      ),
-                                                    ],
-                                                  );
-                                                },
-                                              );
-                                            },
-                                            icon: Icon(Icons.delete_outline),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    Container(height: screenHeight * 0.02),
-                    Container(
-                      margin: EdgeInsets.only(left: screenWidth * 0.02),
-                      width: screenWidth * 0.77,
-                      height: screenHeight * 0.6,
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.black12, width: 3),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: ListView(
-                        children: [
-                          Container(
-                            margin: EdgeInsets.only(left: screenWidth * 0.02),
-                            width: screenWidth * 0.08,
-                            child: Text(
-                              "Users Reports",
-                              style: TextStyle(fontSize: screenHeight * 0.025),
-                            ),
-                          ),
-                          Column(
-                            children: List.generate(
-                              reports.length,
-                              (index) => Container(
-                                child: Card(
-                                  child: ListTile(
-                                    leading: Icon(Icons.mail_outlined),
-                                    title: Text(reports[index].name),
-                                    subtitle: Text(reports[index].message),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

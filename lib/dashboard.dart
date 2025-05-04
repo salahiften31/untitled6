@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'package:flutter/material.dart';
 import 'package:untitled6/Graphe/bar_graphe.dart';
 import 'package:untitled6/home.dart';

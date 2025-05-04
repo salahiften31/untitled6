@@ -1,3 +1,5 @@
+// ignore_for_file: camel_case_types, avoid_print
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:untitled6/Graphe/bar_data.dart';
@@ -14,6 +16,7 @@ class Mybar_G extends StatefulWidget {
 
 class _Mybar_GState extends State<Mybar_G> {
   bool isLoading = true;
+  // ignore: non_constant_identifier_names
   late BarData bar_data;
   // Add a stream subscription to manage the listener
   StreamSubscription<QuerySnapshot>? _usersSubscription;
