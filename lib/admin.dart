@@ -161,7 +161,7 @@ Future<void> showDeleteConfirmationDialog(String adminCode) async {
                 borderRadius: BorderRadius.circular(35)
               ),
               width: screenWidth * 0.3,
-              height: screenHeight * 0.35,
+              height: screenHeight * 0.5,
               child: Column(
                 children: [
                   Container(
@@ -285,7 +285,7 @@ void showAddAdminDialog() {
               ),
               width: screenWidth * 0.4,
               // Increase height to accommodate the new field
-              height: screenHeight * 0.55,
+              height: screenHeight * 0.65,
               child: Column(
                 children: [
                   Container(
@@ -343,7 +343,7 @@ void showAddAdminDialog() {
                     ),
                   ),
                   Container(
-                    margin: EdgeInsets.only(top: screenHeight * 0.05, left: screenWidth * 0.14),
+                    margin: EdgeInsets.only(top: screenHeight * 0.04, left: screenWidth * 0.14),
                     child: Row(
                       children: [
                         Container(

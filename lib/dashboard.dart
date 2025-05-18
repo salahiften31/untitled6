@@ -331,33 +331,35 @@ child: Mybar_G(),
   }
 
   // Helper method to build dashboard cards
- Widget _buildDashboardCard(String title, double screenWidth, String picture, double screenHeight, String value) {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12, width: 3),
-        borderRadius: BorderRadius.circular(20),
-        color: Colors.white,
-      ),
-      width: screenWidth * 0.2, // 15% of screen width
-      height: screenHeight * 0.15, // Fixed height for cards
-      child: Column(
+Widget _buildDashboardCard(String title, double screenWidth, String picture, double screenHeight, String value) {
+  return Container(
+    decoration: BoxDecoration(
+      border: Border.all(color: Colors.black12, width: 3),
+      borderRadius: BorderRadius.circular(20),
+      color: Colors.white,
+    ),
+    width: screenWidth * 0.2,
+    height: screenHeight * 0.15,
+    child: Padding(
+      padding: EdgeInsets.all(15),
+      child: Row( // Changed from Column to Row
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: EdgeInsets.all(15),
+          // Left side - Text content
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
                   style: TextStyle(
-                    fontSize: 14,
+                    fontSize: screenHeight * 0.017,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
                 SizedBox(height: 6),
                 Text(
-                  value, // Display the actual value
+                  value,
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -367,15 +369,21 @@ child: Mybar_G(),
               ],
             ),
           ),
+          // Right side - Image
           Container(
             height: screenHeight * 0.045,
-            margin: EdgeInsets.only(left: screenWidth * 0.15),
+            width: screenHeight * 0.045, // Make it square
             child: ClipRRect(
-              child: Image.asset("assets/$picture"),
+              borderRadius: BorderRadius.circular(8), // Optional: rounded image
+              child: Image.asset(
+                "assets/$picture",
+                fit: BoxFit.cover, // Ensure image fits well
+              ),
             ),
-          )
+          ),
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
