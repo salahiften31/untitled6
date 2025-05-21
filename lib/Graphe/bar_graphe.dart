@@ -149,16 +149,7 @@ double maxValue = [
 // Custom scaling logic:
 // If max value is 7, scale to 100 (7*10 rounded up)
 // If max value is 70, scale to 1000 (70*10 rounded up)
-double maxY;
-if (maxValue <= 0) {
-  maxY = 100; // Default if no data
-} else {
-  // Multiply by 10 and round to nearest power of 10
-  int multiplied = (maxValue * 10).ceil();
-  int digits = multiplied.toString().length;
-  maxY = pow(10, digits).toDouble();
-}
-
+double maxY =20;
     return BarChart(
       BarChartData(
         maxY: maxY, // Dynamic max value based on data
